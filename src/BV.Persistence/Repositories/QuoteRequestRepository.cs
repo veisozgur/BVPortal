@@ -22,6 +22,11 @@ public sealed class QuoteRequestRepository(BVPortalDbContext dbContext) : IQuote
             .Include(x => x.Items)
             .SingleOrDefaultAsync(x => x.Id == id && x.CustomerId == customerId, cancellationToken);
 
+    public Task<QuoteRequest?> GetByIdForAdministrationAsync(Guid id, CancellationToken cancellationToken = default) =>
+        dbContext.QuoteRequests
+            .Include(x => x.Items)
+            .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+
     public Task SaveChangesAsync(CancellationToken cancellationToken = default) =>
         dbContext.SaveChangesAsync(cancellationToken);
 }
