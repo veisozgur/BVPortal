@@ -55,6 +55,7 @@ builder.Services.AddScoped<ICustomerProfileRepository, CustomerProfileRepository
 builder.Services.AddScoped<IQuoteRequestRepository, QuoteRequestRepository>();
 builder.Services.AddScoped<IQuoteResponseRepository, QuoteResponseRepository>();
 builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
+builder.Services.AddScoped<IEmailSender, DevelopmentEmailSender>();
 
 var netGsmOptions = builder.Configuration.GetSection(NetGsmOptions.SectionName).Get<NetGsmOptions>() ?? new();
 if (netGsmOptions.Enabled)
