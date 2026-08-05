@@ -57,6 +57,7 @@ builder.Services.AddScoped<ICustomerProfileRepository, CustomerProfileRepository
 builder.Services.AddScoped<IQuoteRequestRepository, QuoteRequestRepository>();
 builder.Services.AddScoped<IQuoteResponseRepository, QuoteResponseRepository>();
 builder.Services.AddScoped<IAdminDashboardQuery, AdminDashboardQuery>();
+builder.Services.AddScoped<IAdminQuoteOperations, AdminQuoteOperations>();
 builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
 builder.Services.AddScoped<IEmailSender, DevelopmentEmailSender>();
 
