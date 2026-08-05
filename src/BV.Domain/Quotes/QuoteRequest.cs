@@ -10,7 +10,6 @@ public sealed class QuoteRequest
     {
         if (customerId == Guid.Empty)
             throw new ArgumentException("Customer id is required.", nameof(customerId));
-
         if (string.IsNullOrWhiteSpace(title))
             throw new ArgumentException("Title is required.", nameof(title));
 
@@ -58,6 +57,13 @@ public sealed class QuoteRequest
         SubmittedAtUtc = DateTime.UtcNow;
     }
 
+    public void StartReview()
+    {
+        if (Status != QuoteRequestStatus.Submitted)
+            throw new InvalidOperationException("Only submitted quote requests can be reviewed.");
+        Status = QuoteRequestStatus.UnderReview;
+    }
+
     public void MarkAnswered()
     {
         if (Status is not QuoteRequestStatus.Submitted and not QuoteRequestStatus.UnderReview)
@@ -65,6 +71,13 @@ public sealed class QuoteRequest
 
         Status = QuoteRequestStatus.Answered;
         AnsweredAtUtc = DateTime.UtcNow;
+    }
+
+    public void Cancel()
+    {
+        if (Status is QuoteRequestStatus.Answered or QuoteRequestStatus.Accepted or QuoteRequestStatus.Rejected)
+            throw new InvalidOperationException("Completed quote requests cannot be cancelled.");
+        Status = QuoteRequestStatus.Cancelled;
     }
 
     private void EnsureDraft()
