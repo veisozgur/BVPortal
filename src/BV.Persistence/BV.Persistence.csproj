@@ -4,6 +4,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.0">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <ProjectReference Include="..\BV.Application\BV.Application.csproj" />
     <ProjectReference Include="..\BV.Domain\BV.Domain.csproj" />
   </ItemGroup>
 </Project>
