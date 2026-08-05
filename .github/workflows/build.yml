@@ -22,11 +22,17 @@ jobs:
         with:
           dotnet-version: 9.0.x
 
-      - name: Restore
+      - name: Restore solution
         run: dotnet restore BVPortal.sln
 
-      - name: Build
+      - name: Restore web
+        run: dotnet restore src/BV.Web/BV.Web.csproj
+
+      - name: Build solution
         run: dotnet build BVPortal.sln --configuration Release --no-restore
+
+      - name: Build web
+        run: dotnet build src/BV.Web/BV.Web.csproj --configuration Release --no-restore
 
       - name: Test
         run: dotnet test BVPortal.sln --configuration Release --no-build --verbosity normal
