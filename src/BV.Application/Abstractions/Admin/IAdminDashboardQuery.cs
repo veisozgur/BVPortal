@@ -5,6 +5,9 @@ namespace BV.Application.Abstractions.Admin;
 public interface IAdminDashboardQuery
 {
     Task<AdminDashboardSummary> GetSummaryAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<AdminDashboardDailyMetric>> GetDailyMetricsAsync(
+        int days,
+        CancellationToken cancellationToken = default);
     Task<IReadOnlyList<AdminQuoteListItem>> ListQuotesAsync(
         QuoteRequestStatus? status,
         QuoteRequestType? type,
@@ -20,6 +23,12 @@ public sealed record AdminDashboardSummary(
     int PendingQuoteRequests,
     int AnsweredQuoteRequests,
     int FailedNotifications);
+
+public sealed record AdminDashboardDailyMetric(
+    DateOnly Date,
+    int CreatedQuoteRequests,
+    int SubmittedQuoteRequests,
+    int AnsweredQuoteRequests);
 
 public sealed record AdminQuoteListItem(
     Guid Id,
