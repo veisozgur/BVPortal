@@ -1,0 +1,174 @@
+@page "/yeni-teklif"
+@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@using BV.Web.Services
+@inject QuoteApiClient QuoteApi
+@inject AuthSession Session
+@inject NavigationManager Navigation
+
+<PageTitle>Yeni Teklif | BV Portal</PageTitle>
+
+<div class="page-heading">
+    <div>
+        <span class="eyebrow">Müşteri Portalı</span>
+        <h1>Yeni teklif talebi</h1>
+        <p>Okul veya ofis ihtiyaçlarınızı kalem kalem ekleyip tek seferde gönderin.</p>
+    </div>
+</div>
+
+@if (!Session.IsAuthenticated)
+{
+    <section class="panel empty-state">
+        <h2>Oturum gerekli</h2>
+        <p>Teklif oluşturmak için önce giriş yapmalısınız.</p>
+        <a class="button primary" href="/giris">Giriş Yap</a>
+    </section>
+}
+else
+{
+    <div class="quote-builder">
+        <section class="panel">
+            <EditForm Model="form" OnValidSubmit="SaveAsync">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div class="type-selector">
+                    <button type="button" class="type-card @(form.Type == 1 ? "selected" : null)" @onclick="() => form.Type = 1">
+                        <strong>Okul Teklifi</strong>
+                        <span>Kırtasiye, sınıf ve eğitim ihtiyaçları</span>
+                    </button>
+                    <button type="button" class="type-card @(form.Type == 2 ? "selected" : null)" @onclick="() => form.Type = 2">
+                        <strong>Ofis Teklifi</strong>
+                        <span>Ofis sarf, teknoloji ve iş yeri ihtiyaçları</span>
+                    </button>
+                </div>
+
+                <div class="form-grid single">
+                    <label>Teklif başlığı
+                        <InputText class="input" @bind-Value="form.Title" placeholder="Örn. 2026-2027 okul kırtasiye ihtiyaçları" />
+                    </label>
+                    <label>Açıklama
+                        <InputTextArea class="input" @bind-Value="form.Description" placeholder="Teslimat, marka veya ürün özellikleri gibi ek bilgiler" />
+                    </label>
+                </div>
+
+                <div class="panel-heading compact">
+                    <div>
+                        <h2>Ürün kalemleri</h2>
+                        <p>Her ürün için miktar ve birim girin.</p>
+                    </div>
+                    <button type="button" class="button ghost" @onclick="AddItem">+ Ürün Ekle</button>
+                </div>
+
+                <div class="quote-items">
+                    @for (var index = 0; index < form.Items.Count; index++)
+                    {
+                        var item = form.Items[index];
+                        var currentIndex = index;
+                        <div class="quote-item">
+                            <label>Ürün adı
+                                <InputText class="input" @bind-Value="item.ProductName" placeholder="Ürün adı" />
+                            </label>
+                            <label>Miktar
+                                <InputNumber class="input" @bind-Value="item.Quantity" />
+                            </label>
+                            <label>Birim
+                                <InputText class="input" @bind-Value="item.Unit" />
+                            </label>
+                            <label>Açıklama
+                                <InputText class="input" @bind-Value="item.Description" placeholder="Marka, renk, ölçü..." />
+                            </label>
+                            <button type="button" class="remove-button" title="Kalemi sil" @onclick="() => RemoveItem(currentIndex)">×</button>
+                        </div>
+                    }
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(message))
+                {
+                    <div class="form-message @(success ? "success-message" : "error-message")">@message</div>
+                }
+
+                <div class="form-actions">
+                    <label class="check-label"><InputCheckbox @bind-Value="form.Submit" /> Hemen gönder</label>
+                    <button class="button primary" type="submit" disabled="@saving">@(saving ? "Kaydediliyor..." : form.Submit ? "Teklifi Gönder" : "Taslak Kaydet")</button>
+                </div>
+            </EditForm>
+        </section>
+
+        <aside class="panel quote-summary">
+            <span class="eyebrow">Sepet Özeti</span>
+            <h2>@form.Items.Count ürün kalemi</h2>
+            <p>Toplam miktar: <strong>@form.Items.Sum(x => x.Quantity)</strong></p>
+            <hr />
+            @foreach (var item in form.Items.Where(x => !string.IsNullOrWhiteSpace(x.ProductName)))
+            {
+                <div class="summary-line">
+                    <span>@item.ProductName</span>
+                    <strong>@item.Quantity @item.Unit</strong>
+                </div>
+            }
+        </aside>
+    </div>
+}
+
+@code {
+    private readonly QuoteFormModel form = new();
+    private bool saving;
+    private bool success;
+    private string? message;
+
+    protected override void OnInitialized() => AddItem();
+
+    private void AddItem() => form.Items.Add(new CreateQuoteItemModel());
+
+    private void RemoveItem(int index)
+    {
+        if (form.Items.Count == 1)
+            return;
+        form.Items.RemoveAt(index);
+    }
+
+    private async Task SaveAsync()
+    {
+        message = null;
+        success = false;
+
+        if (form.Items.Any(x => string.IsNullOrWhiteSpace(x.ProductName) || x.Quantity <= 0))
+        {
+            message = "Tüm ürün kalemlerinde ürün adı ve sıfırdan büyük miktar bulunmalıdır.";
+            return;
+        }
+
+        saving = true;
+        var request = new CreateQuoteModel
+        {
+            Type = form.Type,
+            Title = form.Title,
+            Description = form.Description,
+            Submit = form.Submit
+        };
+        request.Items.AddRange(form.Items);
+
+        var result = await QuoteApi.CreateAsync(request);
+        saving = false;
+        success = result.Success;
+        message = result.Message;
+
+        if (result.Success)
+        {
+            form.Title = string.Empty;
+            form.Description = null;
+            form.Items.Clear();
+            AddItem();
+        }
+    }
+
+    private sealed class QuoteFormModel
+    {
+        [Range(1, 2)] public int Type { get; set; } = 1;
+        [Required, StringLength(200, MinimumLength = 3)] public string Title { get; set; } = string.Empty;
+        [StringLength(2000)] public string? Description { get; set; }
+        public bool Submit { get; set; } = true;
+        public List<CreateQuoteItemModel> Items { get; } = [];
+    }
+}
