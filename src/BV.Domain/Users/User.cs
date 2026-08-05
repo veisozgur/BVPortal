@@ -13,6 +13,7 @@ public sealed class User : BaseEntity
         Phone = phone.Trim();
         Email = email.Trim().ToLowerInvariant();
         PasswordHash = passwordHash;
+        Role = UserRole.Customer;
     }
 
     public string FirstName { get; private set; } = string.Empty;
@@ -21,12 +22,19 @@ public sealed class User : BaseEntity
     public string Email { get; private set; } = string.Empty;
     public string PasswordHash { get; private set; } = string.Empty;
     public string? NationalIdentityNumber { get; private set; }
+    public UserRole Role { get; private set; } = UserRole.Customer;
     public bool IsPhoneVerified { get; private set; }
     public bool IsActive { get; private set; } = true;
 
     public void VerifyPhone()
     {
         IsPhoneVerified = true;
+        MarkUpdated();
+    }
+
+    public void AssignRole(UserRole role)
+    {
+        Role = role;
         MarkUpdated();
     }
 }
