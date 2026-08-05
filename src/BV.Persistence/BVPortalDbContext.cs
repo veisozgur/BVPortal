@@ -1,6 +1,7 @@
 using BV.Domain.Auditing;
 using BV.Domain.Authentication;
 using BV.Domain.Customers;
+using BV.Domain.Notifications;
 using BV.Domain.Quotes;
 using BV.Domain.Users;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +20,7 @@ public sealed class BVPortalDbContext(DbContextOptions<BVPortalDbContext> option
     public DbSet<QuoteRequestItem> QuoteRequestItems => Set<QuoteRequestItem>();
     public DbSet<QuoteResponse> QuoteResponses => Set<QuoteResponse>();
     public DbSet<QuoteResponseItem> QuoteResponseItems => Set<QuoteResponseItem>();
+    public DbSet<QuoteNotification> QuoteNotifications => Set<QuoteNotification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
