@@ -1,7 +1,10 @@
 using System.Text;
 using BV.Application.Abstractions.Authentication;
+using BV.Application.Abstractions.Notifications;
 using BV.Infrastructure.Authentication;
+using BV.Infrastructure.Notifications;
 using BV.Persistence;
+using BV.Persistence.Repositories;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -15,6 +18,9 @@ builder.Services.AddHealthChecks();
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<IOtpService, OtpService>();
+builder.Services.AddScoped<IOtpCodeRepository, OtpCodeRepository>();
+builder.Services.AddScoped<ISmsSender, DevelopmentSmsSender>();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("DefaultConnection is not configured.");
@@ -25,9 +31,7 @@ var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<Jw
     ?? throw new InvalidOperationException("JWT configuration is missing.");
 
 if (jwtOptions.Key.Length < 32)
-{
     throw new InvalidOperationException("JWT key must contain at least 32 characters.");
-}
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
