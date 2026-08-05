@@ -31,6 +31,7 @@ public sealed class QuoteRequest
     public string? Description { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
     public DateTime? SubmittedAtUtc { get; private set; }
+    public DateTime? AnsweredAtUtc { get; private set; }
     public IReadOnlyCollection<QuoteRequestItem> Items => _items.AsReadOnly();
 
     public void AddItem(string productName, decimal quantity, string unit, string? notes)
@@ -55,6 +56,15 @@ public sealed class QuoteRequest
 
         Status = QuoteRequestStatus.Submitted;
         SubmittedAtUtc = DateTime.UtcNow;
+    }
+
+    public void MarkAnswered()
+    {
+        if (Status is not QuoteRequestStatus.Submitted and not QuoteRequestStatus.UnderReview)
+            throw new InvalidOperationException("Only submitted quote requests can be answered.");
+
+        Status = QuoteRequestStatus.Answered;
+        AnsweredAtUtc = DateTime.UtcNow;
     }
 
     private void EnsureDraft()
