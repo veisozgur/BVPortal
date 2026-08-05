@@ -27,3 +27,6 @@ jobs:
 
       - name: Build
         run: dotnet build BVPortal.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test BVPortal.sln --configuration Release --no-build --verbosity normal
