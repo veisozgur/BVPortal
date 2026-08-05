@@ -17,6 +17,8 @@ public sealed class BVPortalDbContext(DbContextOptions<BVPortalDbContext> option
     public DbSet<CustomerProfile> CustomerProfiles => Set<CustomerProfile>();
     public DbSet<QuoteRequest> QuoteRequests => Set<QuoteRequest>();
     public DbSet<QuoteRequestItem> QuoteRequestItems => Set<QuoteRequestItem>();
+    public DbSet<QuoteResponse> QuoteResponses => Set<QuoteResponse>();
+    public DbSet<QuoteResponseItem> QuoteResponseItems => Set<QuoteResponseItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
