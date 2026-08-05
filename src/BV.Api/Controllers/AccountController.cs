@@ -95,9 +95,10 @@ public sealed class AccountController(
 
     private object CreateTokenResponse(User user, string refreshToken) => new
     {
-        accessToken = jwtTokens.CreateAccessToken(user, ["Customer"]),
+        accessToken = jwtTokens.CreateAccessToken(user, [user.Role.ToString()]),
         refreshToken,
-        expiresIn = 900
+        expiresIn = 900,
+        role = user.Role.ToString()
     };
 
     private static string HashToken(string token) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
