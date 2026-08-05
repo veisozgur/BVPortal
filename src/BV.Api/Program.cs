@@ -1,6 +1,7 @@
 using System.Text;
 using BV.Application.Abstractions.Authentication;
 using BV.Application.Abstractions.Notifications;
+using BV.Application.Abstractions.Users;
 using BV.Infrastructure.Authentication;
 using BV.Infrastructure.Notifications;
 using BV.Persistence;
@@ -18,8 +19,10 @@ builder.Services.AddHealthChecks();
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IOtpCodeRepository, OtpCodeRepository>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ISmsSender, DevelopmentSmsSender>();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
