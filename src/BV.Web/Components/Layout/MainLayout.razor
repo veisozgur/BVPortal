@@ -1,0 +1,34 @@
+@inherits LayoutComponentBase
+
+<div class="app-shell">
+    <aside class="sidebar">
+        <a class="brand" href="/">
+            <span class="brand-mark">BV</span>
+            <span><strong>BV Portal</strong><small>Teklif Yönetimi</small></span>
+        </a>
+
+        <nav>
+            <a href="/customer">Müşteri Paneli</a>
+            <a href="/customer/new-quote">Yeni Teklif</a>
+            <a href="/customer/quotes">Tekliflerim</a>
+            <a href="/admin">Yönetim Paneli</a>
+            <a href="/admin/quotes">Teklif Operasyonları</a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <span>Güvenli erişim</span>
+            <small>SMS doğrulamalı müşteri portalı</small>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="topbar">
+            <div>
+                <span class="eyebrow">BV Kırtasiye</span>
+                <strong>Okul ve ofis teklif platformu</strong>
+            </div>
+            <a class="button ghost" href="/login">Giriş Yap</a>
+        </header>
+        <div class="page-content">@Body</div>
+    </main>
+</div>
