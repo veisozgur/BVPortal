@@ -1,0 +1,32 @@
+@page "/tekliflerim"
+@inject QuoteApiClient Quotes
+@inject NavigationManager Navigation
+
+<PageTitle>Tekliflerim</PageTitle>
+
+<div class="page-heading"><div><span class="eyebrow">Müşteri Portalı</span><h1>Tekliflerim</h1><p>Geçmiş ve devam eden teklif taleplerinizi görüntüleyin.</p></div><a class="button primary" href="/yeni-teklif">Yeni Teklif</a></div>
+
+@if (loading)
+{
+    <div class="panel">Teklifler yükleniyor...</div>
+}
+else if (items.Count == 0)
+{
+    <div class="panel empty-state"><h2>Henüz teklifiniz yok</h2><p>İlk okul veya ofis teklif talebinizi oluşturabilirsiniz.</p></div>
+}
+else
+{
+    <div class="panel table-wrap"><table><thead><tr><th>Başlık</th><th>Tür</th><th>Durum</th><th>Kalem</th><th>Tarih</th><th></th></tr></thead><tbody>
+    @foreach (var quote in items)
+    {
+        <tr><td><strong>@quote.Title</strong></td><td>@(quote.Type == 1 ? "Okul" : "Ofis")</td><td><span class="badge @(quote.Status == 3 ? "success" : "pending")">@Status(quote.Status)</span></td><td>@quote.Items.Count</td><td>@quote.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy")</td><td><button class="button ghost" @onclick="() => Navigation.NavigateTo($"/tekliflerim/{quote.Id}")">Detay</button></td></tr>
+    }
+    </tbody></table></div>
+}
+
+@code {
+    private IReadOnlyList<QuoteSummaryModel> items = [];
+    private bool loading = true;
+    protected override async Task OnInitializedAsync() { try { items = await Quotes.ListAsync(); } finally { loading = false; } }
+    private static string Status(int status) => status switch { 0 => "Taslak", 1 => "Gönderildi", 2 => "İnceleniyor", 3 => "Cevaplandı", 4 => "İptal", _ => "Bilinmiyor" };
+}
