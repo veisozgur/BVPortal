@@ -15,6 +15,7 @@ builder.Services.AddScoped<AuthSession>();
 builder.Services.AddScoped<AuthApiClient>();
 builder.Services.AddScoped<QuoteApiClient>();
 builder.Services.AddScoped<ProfileApiClient>();
+builder.Services.AddScoped<AdminApiClient>();
 
 var app = builder.Build();
 
