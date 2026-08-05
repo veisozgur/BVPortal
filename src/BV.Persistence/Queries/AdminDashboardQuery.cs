@@ -28,6 +28,35 @@ public sealed class AdminDashboardQuery(BVPortalDbContext dbContext) : IAdminDas
             failedNotifications);
     }
 
+    public async Task<IReadOnlyList<AdminDashboardDailyMetric>> GetDailyMetricsAsync(
+        int days,
+        CancellationToken cancellationToken = default)
+    {
+        days = Math.Clamp(days, 1, 90);
+        var startDate = DateTime.UtcNow.Date.AddDays(-(days - 1));
+
+        var quotes = await dbContext.QuoteRequests
+            .AsNoTracking()
+            .Where(x => x.CreatedAtUtc >= startDate)
+            .Select(x => new { x.CreatedAtUtc, x.SubmittedAtUtc, x.AnsweredAtUtc })
+            .ToListAsync(cancellationToken);
+
+        var result = new List<AdminDashboardDailyMetric>(days);
+        for (var offset = 0; offset < days; offset++)
+        {
+            var date = startDate.AddDays(offset);
+            var nextDate = date.AddDays(1);
+
+            result.Add(new AdminDashboardDailyMetric(
+                DateOnly.FromDateTime(date),
+                quotes.Count(x => x.CreatedAtUtc >= date && x.CreatedAtUtc < nextDate),
+                quotes.Count(x => x.SubmittedAtUtc >= date && x.SubmittedAtUtc < nextDate),
+                quotes.Count(x => x.AnsweredAtUtc >= date && x.AnsweredAtUtc < nextDate)));
+        }
+
+        return result;
+    }
+
     public async Task<IReadOnlyList<AdminQuoteListItem>> ListQuotesAsync(
         QuoteRequestStatus? status,
         QuoteRequestType? type,
