@@ -1,0 +1,35 @@
+@page "/admin"
+
+<PageTitle>Yönetim Paneli</PageTitle>
+
+<section class="page-heading">
+    <div><span class="eyebrow">Yönetim Paneli</span><h1>Teklif operasyonları</h1><p>Güncel talepleri, cevap performansını ve bildirim durumlarını izleyin.</p></div>
+    <a class="button primary" href="/admin/quotes">Teklifleri Yönet</a>
+</section>
+
+<section class="metric-grid">
+    <article><span>Toplam Müşteri</span><strong>248</strong><small>Kayıtlı müşteri profili</small></article>
+    <article><span>Bekleyen Teklif</span><strong>18</strong><small>Yanıt bekliyor</small></article>
+    <article><span>Cevaplanan</span><strong>126</strong><small>Son 30 gün</small></article>
+    <article><span>Bildirim Hatası</span><strong>2</strong><small>Yeniden gönderilmeli</small></article>
+</section>
+
+<section class="dashboard-grid">
+    <article class="panel chart-card">
+        <div class="panel-heading"><div><h2>30 günlük performans</h2><p>Teklif ve cevap yoğunluğu.</p></div></div>
+        <div class="bar-chart" aria-label="Örnek performans grafiği">
+            @foreach (var value in new[] { 35, 55, 42, 78, 66, 88, 72, 91, 64, 82, 96, 76 })
+            {
+                <span style="height:@($"{value}%")"></span>
+            }
+        </div>
+    </article>
+    <article class="panel">
+        <div class="panel-heading"><div><h2>Operasyon öncelikleri</h2><p>Bugün dikkat gerektiren işler.</p></div></div>
+        <ul class="task-list">
+            <li><span class="task-dot urgent"></span><div><strong>8 teklif 24 saati geçti</strong><small>Hızlı cevap bekliyor</small></div></li>
+            <li><span class="task-dot"></span><div><strong>2 bildirim başarısız</strong><small>SMS veya e-posta yeniden gönderilmeli</small></div></li>
+            <li><span class="task-dot good"></span><div><strong>Ortalama cevap süresi 4,2 saat</strong><small>Hedefin içinde</small></div></li>
+        </ul>
+    </article>
+</section>
