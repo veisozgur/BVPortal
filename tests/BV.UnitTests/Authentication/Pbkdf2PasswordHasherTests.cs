@@ -1,4 +1,5 @@
 using BV.Infrastructure.Authentication;
+using Xunit;
 
 namespace BV.UnitTests.Authentication;
 
