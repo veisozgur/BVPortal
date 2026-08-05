@@ -1,0 +1,31 @@
+@page "/profil"
+@inject ProfileApiClient Profiles
+
+<PageTitle>Profilim</PageTitle>
+
+<div class="page-heading"><div><span class="eyebrow">Müşteri Portalı</span><h1>Profilim</h1><p>Tekliflerde kullanılacak kurum ve iletişim bilgilerinizi yönetin.</p></div></div>
+<div class="panel">
+    <EditForm Model="model" OnValidSubmit="SaveAsync"><DataAnnotationsValidator /><ValidationSummary />
+        <div class="form-grid">
+            <label>Ad Soyad<InputText @bind-Value="model.FullName" /></label>
+            <label>Telefon<InputText @bind-Value="model.PhoneNumber" /></label>
+            <label>E-posta<InputText @bind-Value="model.Email" /></label>
+            <label>Kurum/Firma<InputText @bind-Value="model.OrganizationName" /></label>
+            <label>Vergi No<InputText @bind-Value="model.TaxNumber" /></label>
+            <label>Şehir<InputText @bind-Value="model.City" /></label>
+            <label>İlçe<InputText @bind-Value="model.District" /></label>
+            <label class="full">Adres<InputTextArea @bind-Value="model.Address" /></label>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(message)){<p class="@(success ? "success-text" : "error-text")">@message</p>}
+        <button class="button primary" type="submit" disabled="@saving">@(saving ? "Kaydediliyor..." : "Profili Kaydet")</button>
+    </EditForm>
+</div>
+
+@code {
+    private CustomerProfileModel model = new();
+    private bool saving;
+    private bool success;
+    private string? message;
+    protected override async Task OnInitializedAsync() { model = await Profiles.GetAsync() ?? new CustomerProfileModel(); }
+    private async Task SaveAsync() { saving = true; var result = await Profiles.CreateAsync(model); success = result.Success; message = result.Message; saving = false; }
+}
