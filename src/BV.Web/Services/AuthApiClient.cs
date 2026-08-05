@@ -34,7 +34,7 @@ public sealed class AuthApiClient(IHttpClientFactory httpClientFactory, AuthSess
         if (token is null)
             return ApiResult.Fail("Sunucudan geçerli oturum bilgisi alınamadı.");
 
-        session.SetTokens(token.AccessToken, token.RefreshToken, token.ExpiresIn);
+        session.SetTokens(token.AccessToken, token.RefreshToken, token.ExpiresIn, token.Role);
         return ApiResult.Ok("Giriş başarılı.");
     }
 
@@ -60,13 +60,16 @@ public sealed class AuthSession
 {
     public string? AccessToken { get; private set; }
     public string? RefreshToken { get; private set; }
+    public string Role { get; private set; } = "Customer";
     public DateTimeOffset? ExpiresAt { get; private set; }
     public bool IsAuthenticated => !string.IsNullOrWhiteSpace(AccessToken) && ExpiresAt > DateTimeOffset.UtcNow;
+    public bool IsAdmin => string.Equals(Role, "Admin", StringComparison.OrdinalIgnoreCase);
 
-    public void SetTokens(string accessToken, string refreshToken, int expiresIn)
+    public void SetTokens(string accessToken, string refreshToken, int expiresIn, string? role)
     {
         AccessToken = accessToken;
         RefreshToken = refreshToken;
+        Role = string.IsNullOrWhiteSpace(role) ? "Customer" : role;
         ExpiresAt = DateTimeOffset.UtcNow.AddSeconds(expiresIn);
     }
 
@@ -74,13 +77,14 @@ public sealed class AuthSession
     {
         AccessToken = null;
         RefreshToken = null;
+        Role = "Customer";
         ExpiresAt = null;
     }
 }
 
 public sealed record RegisterModel(string FirstName, string LastName, string Phone, string Email, string Password);
 public sealed record LoginModel(string Phone, string Password);
-public sealed record TokenResponse(string AccessToken, string RefreshToken, int ExpiresIn);
+public sealed record TokenResponse(string AccessToken, string RefreshToken, int ExpiresIn, string? Role);
 public sealed record ApiMessage(string? Message);
 public sealed record ApiResult(bool Success, string Message)
 {
