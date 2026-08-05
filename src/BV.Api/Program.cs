@@ -1,5 +1,6 @@
 using System.Text;
 using BV.Api.Middleware;
+using BV.Application.Abstractions.Admin;
 using BV.Application.Abstractions.Authentication;
 using BV.Application.Abstractions.Customers;
 using BV.Application.Abstractions.Notifications;
@@ -8,6 +9,7 @@ using BV.Application.Abstractions.Users;
 using BV.Infrastructure.Authentication;
 using BV.Infrastructure.Notifications;
 using BV.Persistence;
+using BV.Persistence.Queries;
 using BV.Persistence.Repositories;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -54,6 +56,7 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ICustomerProfileRepository, CustomerProfileRepository>();
 builder.Services.AddScoped<IQuoteRequestRepository, QuoteRequestRepository>();
 builder.Services.AddScoped<IQuoteResponseRepository, QuoteResponseRepository>();
+builder.Services.AddScoped<IAdminDashboardQuery, AdminDashboardQuery>();
 builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
 builder.Services.AddScoped<IEmailSender, DevelopmentEmailSender>();
 
