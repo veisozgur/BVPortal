@@ -1,4 +1,5 @@
 @page "/admin"
+@inject AdminApiClient Admin
 
 <PageTitle>Yönetim Paneli</PageTitle>
 
@@ -7,29 +8,73 @@
     <a class="button primary" href="/admin/quotes">Teklifleri Yönet</a>
 </section>
 
-<section class="metric-grid">
-    <article><span>Toplam Müşteri</span><strong>248</strong><small>Kayıtlı müşteri profili</small></article>
-    <article><span>Bekleyen Teklif</span><strong>18</strong><small>Yanıt bekliyor</small></article>
-    <article><span>Cevaplanan</span><strong>126</strong><small>Son 30 gün</small></article>
-    <article><span>Bildirim Hatası</span><strong>2</strong><small>Yeniden gönderilmeli</small></article>
-</section>
+@if (loading)
+{
+    <div class="panel">Yönetim verileri yükleniyor...</div>
+}
+else if (!string.IsNullOrWhiteSpace(error))
+{
+    <div class="panel"><h2>Yönetici erişimi gerekli</h2><p>@error</p></div>
+}
+else if (summary is not null)
+{
+    <section class="metric-grid">
+        <article><span>Toplam Müşteri</span><strong>@summary.TotalCustomers</strong><small>Kayıtlı müşteri profili</small></article>
+        <article><span>Bekleyen Teklif</span><strong>@summary.PendingQuoteRequests</strong><small>Yanıt bekliyor</small></article>
+        <article><span>Cevaplanan</span><strong>@summary.AnsweredQuoteRequests</strong><small>Toplam cevaplanan</small></article>
+        <article><span>Bildirim Hatası</span><strong>@summary.FailedNotifications</strong><small>Yeniden gönderilmeli</small></article>
+    </section>
 
-<section class="dashboard-grid">
-    <article class="panel chart-card">
-        <div class="panel-heading"><div><h2>30 günlük performans</h2><p>Teklif ve cevap yoğunluğu.</p></div></div>
-        <div class="bar-chart" aria-label="Örnek performans grafiği">
-            @foreach (var value in new[] { 35, 55, 42, 78, 66, 88, 72, 91, 64, 82, 96, 76 })
-            {
-                <span style="height:@($"{value}%")"></span>
-            }
-        </div>
-    </article>
-    <article class="panel">
-        <div class="panel-heading"><div><h2>Operasyon öncelikleri</h2><p>Bugün dikkat gerektiren işler.</p></div></div>
-        <ul class="task-list">
-            <li><span class="task-dot urgent"></span><div><strong>8 teklif 24 saati geçti</strong><small>Hızlı cevap bekliyor</small></div></li>
-            <li><span class="task-dot"></span><div><strong>2 bildirim başarısız</strong><small>SMS veya e-posta yeniden gönderilmeli</small></div></li>
-            <li><span class="task-dot good"></span><div><strong>Ortalama cevap süresi 4,2 saat</strong><small>Hedefin içinde</small></div></li>
-        </ul>
-    </article>
-</section>
+    <section class="dashboard-grid">
+        <article class="panel chart-card">
+            <div class="panel-heading"><div><h2>30 günlük performans</h2><p>Günlük oluşturulan teklif yoğunluğu.</p></div></div>
+            <div class="bar-chart" aria-label="Teklif performans grafiği">
+                @foreach (var metric in metrics)
+                {
+                    <span title="@metric.Date.ToString("dd.MM"): @metric.CreatedQuoteRequests teklif" style="height:@Height(metric.CreatedQuoteRequests)"></span>
+                }
+            </div>
+        </article>
+        <article class="panel">
+            <div class="panel-heading"><div><h2>Operasyon özeti</h2><p>Güncel sistem durumu.</p></div></div>
+            <ul class="task-list">
+                <li><span class="task-dot"></span><div><strong>@summary.PendingQuoteRequests teklif bekliyor</strong><small>İnceleme veya cevap gerektiriyor</small></div></li>
+                <li><span class="task-dot urgent"></span><div><strong>@summary.FailedNotifications bildirim başarısız</strong><small>SMS veya e-posta yeniden gönderilmeli</small></div></li>
+                <li><span class="task-dot good"></span><div><strong>@summary.TotalQuoteRequests toplam teklif</strong><small>Sisteme kaydedilen tüm talepler</small></div></li>
+            </ul>
+        </article>
+    </section>
+}
+
+@code {
+    private AdminDashboardSummaryModel? summary;
+    private IReadOnlyList<AdminDailyMetricModel> metrics = [];
+    private bool loading = true;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            summary = await Admin.GetDashboardAsync();
+            metrics = await Admin.GetDailyMetricsAsync();
+            if (summary is null)
+                error = "Yönetim panelini görüntülemek için Admin rolüne sahip bir hesapla giriş yapmalısınız.";
+        }
+        catch (HttpRequestException ex)
+        {
+            error = $"Yönetim verileri alınamadı: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private string Height(int value)
+    {
+        var max = Math.Max(1, metrics.Select(x => x.CreatedQuoteRequests).DefaultIfEmpty(1).Max());
+        var percentage = Math.Max(8, value * 100 / max);
+        return $"{percentage}%";
+    }
+}
