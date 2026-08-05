@@ -1,0 +1,98 @@
+@page "/kayit"
+@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@using BV.Web.Services
+@inject AuthApiClient AuthClient
+@inject NavigationManager Navigation
+
+<PageTitle>Kayıt - BV Portal</PageTitle>
+
+<section class="auth-shell">
+    <div class="auth-card wide">
+        <span class="eyebrow">Yeni müşteri hesabı</span>
+        <h1>BV Portal'a Kayıt Olun</h1>
+        <p>Bilgilerinizi girin; telefonunuza gönderilen SMS koduyla hesabınızı doğrulayın.</p>
+
+        <EditForm Model="form" OnValidSubmit="SubmitAsync">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="form-grid">
+                <div>
+                    <label>Ad</label>
+                    <InputText class="form-control" @bind-Value="form.FirstName" />
+                </div>
+                <div>
+                    <label>Soyad</label>
+                    <InputText class="form-control" @bind-Value="form.LastName" />
+                </div>
+                <div>
+                    <label>Telefon</label>
+                    <InputText class="form-control" @bind-Value="form.Phone" placeholder="05xx xxx xx xx" />
+                </div>
+                <div>
+                    <label>E-posta</label>
+                    <InputText class="form-control" type="email" @bind-Value="form.Email" />
+                </div>
+            </div>
+
+            <label>Şifre</label>
+            <InputText class="form-control" type="password" @bind-Value="form.Password" />
+
+            <button class="btn-primary full" type="submit" disabled="@busy">
+                @(busy ? "Hesap oluşturuluyor..." : "Kayıt Ol ve SMS Gönder")
+            </button>
+        </EditForm>
+
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <div class="status-message @(success ? "success" : "error")">@message</div>
+        }
+
+        <div class="auth-links">
+            <a href="/giris">Zaten hesabım var</a>
+        </div>
+    </div>
+</section>
+
+@code {
+    private readonly RegisterForm form = new();
+    private bool busy;
+    private bool success;
+    private string? message;
+
+    private async Task SubmitAsync()
+    {
+        busy = true;
+        var result = await AuthClient.RegisterAsync(new RegisterModel(
+            form.FirstName,
+            form.LastName,
+            form.Phone,
+            form.Email,
+            form.Password));
+        busy = false;
+        success = result.Success;
+        message = result.Message;
+
+        if (result.Success)
+            Navigation.NavigateTo($"/telefon-dogrula?phone={Uri.EscapeDataString(form.Phone)}");
+    }
+
+    private sealed class RegisterForm
+    {
+        [Required, StringLength(100, MinimumLength = 2)]
+        public string FirstName { get; set; } = string.Empty;
+
+        [Required, StringLength(100, MinimumLength = 2)]
+        public string LastName { get; set; } = string.Empty;
+
+        [Required, RegularExpression(@"^(\+?90|0)?5\d{9}$", ErrorMessage = "Geçerli bir cep telefonu girin.")]
+        public string Phone { get; set; } = string.Empty;
+
+        [Required, EmailAddress]
+        public string Email { get; set; } = string.Empty;
+
+        [Required, StringLength(100, MinimumLength = 8, ErrorMessage = "Şifre en az 8 karakter olmalıdır.")]
+        public string Password { get; set; } = string.Empty;
+    }
+}
