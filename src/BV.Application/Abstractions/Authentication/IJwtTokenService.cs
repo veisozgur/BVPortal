@@ -1,4 +1,4 @@
-using BV.Domain.Entities;
+using BV.Domain.Users;
 
 namespace BV.Application.Abstractions.Authentication;
 
