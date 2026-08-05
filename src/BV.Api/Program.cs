@@ -45,13 +45,27 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddHealthChecks();
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
+builder.Services.Configure<NetGsmOptions>(builder.Configuration.GetSection(NetGsmOptions.SectionName));
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IOtpCodeRepository, OtpCodeRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
-builder.Services.AddScoped<ISmsSender, DevelopmentSmsSender>();
+
+var netGsmOptions = builder.Configuration.GetSection(NetGsmOptions.SectionName).Get<NetGsmOptions>() ?? new();
+if (netGsmOptions.Enabled)
+{
+    builder.Services.AddHttpClient<ISmsSender, NetGsmSmsSender>(client =>
+    {
+        client.BaseAddress = new Uri(netGsmOptions.BaseUrl.TrimEnd('/') + "/");
+        client.Timeout = TimeSpan.FromSeconds(30);
+    });
+}
+else
+{
+    builder.Services.AddScoped<ISmsSender, DevelopmentSmsSender>();
+}
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("DefaultConnection is not configured.");
