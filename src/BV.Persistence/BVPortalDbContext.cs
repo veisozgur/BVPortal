@@ -1,3 +1,4 @@
+using BV.Domain.Auditing;
 using BV.Domain.Authentication;
 using BV.Domain.Users;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +11,7 @@ public sealed class BVPortalDbContext(DbContextOptions<BVPortalDbContext> option
     public DbSet<User> Users => Set<User>();
     public DbSet<OtpCode> OtpCodes => Set<OtpCode>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
