@@ -13,6 +13,7 @@ builder.Services.AddHttpClient("BV.Api", client =>
 
 builder.Services.AddScoped<AuthSession>();
 builder.Services.AddScoped<AuthApiClient>();
+builder.Services.AddScoped<QuoteApiClient>();
 
 var app = builder.Build();
 
