@@ -21,6 +21,7 @@ public sealed class BVPortalDbContext(DbContextOptions<BVPortalDbContext> option
     public DbSet<QuoteResponse> QuoteResponses => Set<QuoteResponse>();
     public DbSet<QuoteResponseItem> QuoteResponseItems => Set<QuoteResponseItem>();
     public DbSet<QuoteNotification> QuoteNotifications => Set<QuoteNotification>();
+    public DbSet<QuoteOperationNote> QuoteOperationNotes => Set<QuoteOperationNote>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
