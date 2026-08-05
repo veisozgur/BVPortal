@@ -1,9 +1,11 @@
 using System.Text;
 using BV.Application.Abstractions.Authentication;
 using BV.Application.Abstractions.Notifications;
+using BV.Application.Abstractions.Security;
 using BV.Application.Abstractions.Users;
 using BV.Infrastructure.Authentication;
 using BV.Infrastructure.Notifications;
+using BV.Infrastructure.Security;
 using BV.Persistence;
 using BV.Persistence.Repositories;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -19,10 +21,11 @@ builder.Services.AddHealthChecks();
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
-builder.Services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IOtpCodeRepository, OtpCodeRepository>();
+builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
 builder.Services.AddScoped<ISmsSender, DevelopmentSmsSender>();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
