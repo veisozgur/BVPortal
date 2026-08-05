@@ -1,7 +1,9 @@
 using System.Text;
 using BV.Api.Middleware;
 using BV.Application.Abstractions.Authentication;
+using BV.Application.Abstractions.Customers;
 using BV.Application.Abstractions.Notifications;
+using BV.Application.Abstractions.Quotes;
 using BV.Application.Abstractions.Users;
 using BV.Infrastructure.Authentication;
 using BV.Infrastructure.Notifications;
@@ -49,6 +51,8 @@ builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IOtpCodeRepository, OtpCodeRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<ICustomerProfileRepository, CustomerProfileRepository>();
+builder.Services.AddScoped<IQuoteRequestRepository, QuoteRequestRepository>();
 builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
 
 var netGsmOptions = builder.Configuration.GetSection(NetGsmOptions.SectionName).Get<NetGsmOptions>() ?? new();
