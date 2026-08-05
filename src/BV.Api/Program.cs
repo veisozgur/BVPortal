@@ -11,6 +11,7 @@ using BV.Infrastructure.Notifications;
 using BV.Persistence;
 using BV.Persistence.Queries;
 using BV.Persistence.Repositories;
+using BV.Persistence.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -58,6 +59,7 @@ builder.Services.AddScoped<IQuoteRequestRepository, QuoteRequestRepository>();
 builder.Services.AddScoped<IQuoteResponseRepository, QuoteResponseRepository>();
 builder.Services.AddScoped<IAdminDashboardQuery, AdminDashboardQuery>();
 builder.Services.AddScoped<IAdminQuoteOperations, AdminQuoteOperations>();
+builder.Services.AddScoped<IAdminNotificationService, AdminNotificationService>();
 builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
 builder.Services.AddScoped<IEmailSender, DevelopmentEmailSender>();
 
