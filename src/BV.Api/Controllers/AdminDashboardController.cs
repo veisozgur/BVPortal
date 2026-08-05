@@ -17,6 +17,15 @@ public sealed class AdminDashboardController(IAdminDashboardQuery dashboardQuery
         return Ok(summary);
     }
 
+    [HttpGet("dashboard/daily-metrics")]
+    public async Task<IActionResult> GetDailyMetrics(
+        [FromQuery] int days = 30,
+        CancellationToken cancellationToken = default)
+    {
+        var metrics = await dashboardQuery.GetDailyMetricsAsync(days, cancellationToken);
+        return Ok(metrics);
+    }
+
     [HttpGet("quote-requests")]
     public async Task<IActionResult> ListQuoteRequests(
         [FromQuery] QuoteRequestStatus? status,
