@@ -1,4 +1,5 @@
 using BV.Web.Components;
+using BV.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +10,9 @@ builder.Services.AddHttpClient("BV.Api", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["ApiBaseUrl"] ?? "https://localhost:7001/");
 });
+
+builder.Services.AddScoped<AuthSession>();
+builder.Services.AddScoped<AuthApiClient>();
 
 var app = builder.Build();
 
