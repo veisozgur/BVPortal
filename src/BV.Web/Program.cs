@@ -21,6 +21,8 @@ builder.Services.AddScoped<OrderApiClient>();
 builder.Services.AddScoped<ProfileApiClient>();
 builder.Services.AddScoped<AdminApiClient>();
 builder.Services.AddScoped<AdminOrderApiClient>();
+builder.Services.AddScoped<AdminOperationTaskApiClient>();
+builder.Services.AddScoped<AdminAuditApiClient>();
 builder.Services.AddScoped<AdminCatalogApiClient>();
 builder.Services.AddScoped<AdminNotificationApiClient>();
 builder.Services.AddScoped<AdminReportsApiClient>();

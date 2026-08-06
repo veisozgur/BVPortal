@@ -1,0 +1,125 @@
+@page "/admin/tasks"
+@rendermode InteractiveServer
+@using BV.Web.Services
+@inject AdminOperationTaskApiClient TaskApi
+
+<PageTitle>Operasyon Görevleri | BV Portal</PageTitle>
+
+<div class="page-heading">
+    <div>
+        <span class="eyebrow">Operasyon Yönetimi</span>
+        <h1>Operasyon Görevleri</h1>
+        <p>Siparişlere bağlı görevleri, öncelikleri ve terminleri yönetin.</p>
+    </div>
+    <button class="button ghost" @onclick="LoadAsync" disabled="@loading">Yenile</button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <div class="form-message @(success ? "success-message" : "error-message")">@message</div>
+}
+
+<section class="panel">
+    <h2>Yeni Görev</h2>
+    <div class="form-grid">
+        <label>Sipariş ID<input class="input" @bind="orderIdText" /></label>
+        <label>Başlık<input class="input" @bind="title" /></label>
+        <label>Öncelik
+            <select class="input" @bind="priority">
+                <option value="1">Düşük</option><option value="2">Normal</option><option value="3">Yüksek</option><option value="4">Kritik</option>
+            </select>
+        </label>
+        <label>Termin<input class="input" type="datetime-local" @bind="dueAtLocal" /></label>
+    </div>
+    <label>Açıklama<textarea class="input" rows="3" @bind="description"></textarea></label>
+    <button class="button" @onclick="CreateAsync" disabled="@saving">Görev Oluştur</button>
+</section>
+
+<section class="panel">
+    <div class="form-row">
+        <select class="input" @bind="statusFilter" @bind:after="LoadAsync">
+            <option value="">Tüm Durumlar</option>
+            <option value="1">Açık</option><option value="2">Devam Ediyor</option><option value="3">Engellendi</option><option value="4">Tamamlandı</option><option value="5">İptal</option>
+        </select>
+    </div>
+
+    @if (loading)
+    {
+        <p>Görevler yükleniyor...</p>
+    }
+    else if (items.Count == 0)
+    {
+        <p>Görev bulunamadı.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Görev</th><th>Sipariş</th><th>Öncelik</th><th>Durum</th><th>Termin</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var item in items)
+                {
+                    <tr>
+                        <td><strong>@item.Title</strong><br /><small>@item.Description</small></td>
+                        <td><a href="@($"/admin/orders/{item.OrderId}")">@item.OrderId</a></td>
+                        <td>@PriorityName(item.Priority)</td>
+                        <td>@StatusName(item.Status)</td>
+                        <td>@(item.DueAtUtc?.ToLocalTime().ToString("dd.MM.yyyy HH:mm") ?? "-")</td>
+                        <td>
+                            @if (item.Status < 4)
+                            {
+                                <button class="button ghost" @onclick="() => ChangeStatusAsync(item.Id, item.Status == 1 ? 2 : 4)">@(item.Status == 1 ? "Başlat" : "Tamamla")</button>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+@code {
+    private IReadOnlyList<AdminOperationTaskModel> items = [];
+    private bool loading = true;
+    private bool saving;
+    private bool success;
+    private string? message;
+    private string orderIdText = string.Empty;
+    private string title = string.Empty;
+    private string? description;
+    private int priority = 2;
+    private DateTime? dueAtLocal;
+    private string statusFilter = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        items = await TaskApi.ListAsync(status: int.TryParse(statusFilter, out var status) ? status : null);
+        loading = false;
+    }
+
+    private async Task CreateAsync()
+    {
+        if (!Guid.TryParse(orderIdText, out var orderId) || string.IsNullOrWhiteSpace(title))
+        {
+            success = false; message = "Geçerli sipariş ID ve görev başlığı girin."; return;
+        }
+        saving = true;
+        var result = await TaskApi.CreateAsync(orderId, title, description, priority, dueAtLocal?.ToUniversalTime());
+        success = result.Success; message = result.Message; saving = false;
+        if (result.Success) { title = string.Empty; description = null; await LoadAsync(); }
+    }
+
+    private async Task ChangeStatusAsync(Guid id, int status)
+    {
+        var result = await TaskApi.ChangeStatusAsync(id, status);
+        success = result.Success; message = result.Message;
+        if (result.Success) await LoadAsync();
+    }
+
+    private static string StatusName(int value) => value switch { 1 => "Açık", 2 => "Devam Ediyor", 3 => "Engellendi", 4 => "Tamamlandı", 5 => "İptal", _ => "Bilinmiyor" };
+    private static string PriorityName(int value) => value switch { 1 => "Düşük", 2 => "Normal", 3 => "Yüksek", 4 => "Kritik", _ => "Bilinmiyor" };
+}

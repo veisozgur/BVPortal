@@ -1,0 +1,84 @@
+@page "/admin/audit-logs"
+@rendermode InteractiveServer
+@using BV.Web.Services
+@inject AdminAuditApiClient AuditApi
+
+<PageTitle>Denetim Kayıtları | BV Portal</PageTitle>
+
+<div class="page-heading">
+    <div>
+        <span class="eyebrow">Güvenlik ve İzlenebilirlik</span>
+        <h1>Denetim Kayıtları</h1>
+        <p>API işlemlerini kullanıcı, yöntem, durum kodu, yol ve IP bilgisiyle inceleyin.</p>
+    </div>
+    <button class="button ghost" @onclick="LoadAsync" disabled="@loading">Yenile</button>
+</div>
+
+<section class="panel">
+    <div class="form-row">
+        <input class="input" placeholder="Yol, işlem veya IP ara" @bind="search" />
+        <select class="input" @bind="method">
+            <option value="">Tüm yöntemler</option>
+            <option value="GET">GET</option>
+            <option value="POST">POST</option>
+            <option value="PUT">PUT</option>
+            <option value="DELETE">DELETE</option>
+        </select>
+        <input class="input" type="number" placeholder="Durum kodu" @bind="statusCode" />
+        <button class="button" @onclick="LoadAsync" disabled="@loading">Filtrele</button>
+    </div>
+</section>
+
+@if (loading)
+{
+    <section class="panel">Kayıtlar yükleniyor...</section>
+}
+else if (pageModel is null || pageModel.Items.Count == 0)
+{
+    <section class="panel empty-state"><h2>Kayıt bulunamadı</h2></section>
+}
+else
+{
+    <section class="panel">
+        <div class="metric-grid">
+            <article class="metric-card"><span>Toplam Kayıt</span><strong>@pageModel.TotalCount</strong></article>
+            <article class="metric-card"><span>Gösterilen</span><strong>@pageModel.Items.Count</strong></article>
+            <article class="metric-card"><span>Başarısız</span><strong>@pageModel.Items.Count(x => x.StatusCode >= 400)</strong></article>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Tarih</th><th>Kullanıcı</th><th>Yöntem</th><th>Yol</th><th>IP</th><th>Durum</th></tr></thead>
+                <tbody>
+                    @foreach (var item in pageModel.Items)
+                    {
+                        <tr>
+                            <td>@item.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss")</td>
+                            <td>@(item.UserId?.ToString() ?? "Anonim")</td>
+                            <td><strong>@item.Method</strong></td>
+                            <td>@item.Path</td>
+                            <td>@(item.IpAddress ?? "-")</td>
+                            <td>@item.StatusCode</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
+
+@code {
+    private AdminAuditPageModel? pageModel;
+    private bool loading = true;
+    private string? search;
+    private string? method;
+    private int? statusCode;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        pageModel = await AuditApi.ListAsync(method, statusCode, search);
+        loading = false;
+    }
+}

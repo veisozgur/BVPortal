@@ -3,6 +3,7 @@ using BV.Domain.Authentication;
 using BV.Domain.Catalog;
 using BV.Domain.Customers;
 using BV.Domain.Notifications;
+using BV.Domain.Operations;
 using BV.Domain.Orders;
 using BV.Domain.Quotes;
 using BV.Domain.Users;
@@ -30,6 +31,7 @@ public sealed class BVPortalDbContext(DbContextOptions<BVPortalDbContext> option
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<OrderSync> OrderSyncs => Set<OrderSync>();
     public DbSet<OrderStatusHistory> OrderStatusHistories => Set<OrderStatusHistory>();
+    public DbSet<OperationTask> OperationTasks => Set<OperationTask>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
