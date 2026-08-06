@@ -37,6 +37,29 @@ public sealed class AdminOrderApiClient(IHttpClientFactory httpClientFactory, Au
             ? null
             : await CreateClient().GetFromJsonAsync<AdminOrderDetailModel>($"api/v1/admin/orders/{id}", cancellationToken);
 
+    public async Task<OrderSyncStatusModel?> GetSyncStatusAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        if (!session.IsAdmin)
+            return null;
+
+        var response = await CreateClient().GetAsync($"api/v1/admin/orders/{id}/sync", cancellationToken);
+        if (!response.IsSuccessStatusCode)
+            return null;
+
+        return await response.Content.ReadFromJsonAsync<OrderSyncStatusModel>(cancellationToken: cancellationToken);
+    }
+
+    public async Task<ApiResult> SyncToMikroAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var response = await CreateClient().PostAsync($"api/v1/admin/orders/{id}/sync", null, cancellationToken);
+        ApiMessage? body = null;
+        try { body = await response.Content.ReadFromJsonAsync<ApiMessage>(cancellationToken: cancellationToken); } catch { }
+
+        return response.IsSuccessStatusCode
+            ? ApiResult.Ok(body?.Message ?? "Sipariş Mikro'ya aktarıldı.")
+            : ApiResult.Fail(body?.Message ?? $"Mikro aktarımı başarısız ({(int)response.StatusCode}).");
+    }
+
     public async Task<ApiResult> ChangeStatusAsync(Guid id, int status, CancellationToken cancellationToken = default)
     {
         var response = await CreateClient().PutAsJsonAsync(
@@ -116,3 +139,14 @@ public sealed record AdminOrderItemModel(
     decimal UnitPrice,
     decimal VatRate,
     decimal LineTotal);
+
+public sealed record OrderSyncStatusModel(
+    Guid Id,
+    Guid OrderId,
+    string Provider,
+    int Status,
+    string? ExternalOrderId,
+    int AttemptCount,
+    DateTime? LastAttemptAtUtc,
+    DateTime? LastSuccessAtUtc,
+    string? ErrorMessage);
