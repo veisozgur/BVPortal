@@ -1,0 +1,20 @@
+@page "/cikis"
+@rendermode InteractiveServer
+@using BV.Web.Services
+@inject AuthApiClient Auth
+@inject NavigationManager Navigation
+
+<PageTitle>Çıkış - BV Portal</PageTitle>
+
+<section class="panel empty-state">
+    <h2>Oturum kapatılıyor</h2>
+    <p>Güvenli çıkış işlemi tamamlanıyor.</p>
+</section>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.LogoutAsync();
+        Navigation.NavigateTo("/giris", replace: true);
+    }
+}

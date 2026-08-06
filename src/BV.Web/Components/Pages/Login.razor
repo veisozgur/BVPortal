@@ -1,0 +1,70 @@
+@page "/giris"
+@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@using BV.Web.Services
+@inject AuthApiClient AuthClient
+@inject AuthSession Session
+@inject NavigationManager Navigation
+
+<PageTitle>Giriş - BV Portal</PageTitle>
+
+<section class="auth-shell">
+    <div class="auth-card">
+        <span class="eyebrow">Güvenli portal girişi</span>
+        <h1>BV Portal'a Giriş</h1>
+        <p>Telefon numaranız ve şifrenizle müşteri veya yönetim paneline erişin.</p>
+
+        <EditForm Model="form" OnValidSubmit="SubmitAsync">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <label>Telefon</label>
+            <InputText class="form-control" @bind-Value="form.Phone" placeholder="05xx xxx xx xx" />
+
+            <label>Şifre</label>
+            <InputText class="form-control" type="password" @bind-Value="form.Password" />
+
+            <button class="btn-primary full" type="submit" disabled="@busy">
+                @(busy ? "Giriş yapılıyor..." : "Giriş Yap")
+            </button>
+        </EditForm>
+
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <div class="status-message @(success ? "success" : "error")">@message</div>
+        }
+
+        <div class="auth-links">
+            <a href="/kayit">Yeni hesap oluştur</a>
+            <a href="/telefon-dogrula">Telefon doğrula</a>
+        </div>
+    </div>
+</section>
+
+@code {
+    private readonly LoginForm form = new();
+    private bool busy;
+    private bool success;
+    private string? message;
+
+    private async Task SubmitAsync()
+    {
+        busy = true;
+        var result = await AuthClient.LoginAsync(new LoginModel(form.Phone, form.Password));
+        busy = false;
+        success = result.Success;
+        message = result.Message;
+
+        if (result.Success)
+            Navigation.NavigateTo(Session.IsAdmin ? "/admin" : "/panel");
+    }
+
+    private sealed class LoginForm
+    {
+        [Required, RegularExpression(@"^(\+?90|0)?5\d{9}$", ErrorMessage = "Geçerli bir cep telefonu girin.")]
+        public string Phone { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Şifre zorunludur.")]
+        public string Password { get; set; } = string.Empty;
+    }
+}

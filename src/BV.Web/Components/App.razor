@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <link rel="stylesheet" href="app.css" />
+    <HeadOutlet />
+</head>
+<body>
+    <Routes />
+    <script>
+        window.downloadFileFromBase64 = (fileName, contentType, base64) => {
+            const link = document.createElement('a');
+            link.download = fileName;
+            link.href = `data:${contentType};base64,${base64}`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        };
+    </script>
+    <script src="_framework/blazor.web.js"></script>
+</body>
+</html>

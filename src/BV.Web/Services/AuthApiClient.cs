@@ -1,0 +1,181 @@
+using System.Net.Http.Json;
+
+namespace BV.Web.Services;
+
+public sealed class AuthApiClient(
+    IHttpClientFactory httpClientFactory,
+    AuthSession session,
+    AuthSessionStore sessionStore)
+{
+    private HttpClient Client => httpClientFactory.CreateClient("BV.Api");
+
+    public async Task<ApiResult> RegisterAsync(RegisterModel model, CancellationToken cancellationToken = default)
+    {
+        var response = await Client.PostAsJsonAsync("api/v1/auth/register", model, cancellationToken);
+        return await ToResultAsync(response, cancellationToken);
+    }
+
+    public async Task<ApiResult> VerifyPhoneAsync(string phone, string code, CancellationToken cancellationToken = default)
+    {
+        var response = await Client.PostAsJsonAsync("api/v1/auth/verify-phone", new { phone, code }, cancellationToken);
+        return await ToResultAsync(response, cancellationToken);
+    }
+
+    public async Task<ApiResult> SendOtpAsync(string phone, CancellationToken cancellationToken = default)
+    {
+        var response = await Client.PostAsJsonAsync("api/v1/auth/send-otp", new { phone }, cancellationToken);
+        return await ToResultAsync(response, cancellationToken);
+    }
+
+    public async Task<ApiResult> LoginAsync(LoginModel model, CancellationToken cancellationToken = default)
+    {
+        var response = await Client.PostAsJsonAsync("api/v1/auth/login", model, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+            return await ToResultAsync(response, cancellationToken);
+
+        return await ApplyTokenResponseAsync(response, "Giriş başarılı.", cancellationToken);
+    }
+
+    public async Task<bool> RestoreAsync(CancellationToken cancellationToken = default)
+    {
+        var restored = await sessionStore.RestoreAsync(session);
+        if (!restored)
+            return false;
+
+        if (session.IsAuthenticated)
+            return true;
+
+        return await RefreshAsync(cancellationToken);
+    }
+
+    public async Task<bool> RefreshAsync(CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(session.RefreshToken))
+            return false;
+
+        var response = await Client.PostAsJsonAsync(
+            "api/v1/auth/refresh",
+            new { refreshToken = session.RefreshToken },
+            cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            session.Clear();
+            await sessionStore.ClearAsync();
+            return false;
+        }
+
+        var result = await ApplyTokenResponseAsync(response, "Oturum yenilendi.", cancellationToken);
+        return result.Success;
+    }
+
+    public async Task LogoutAsync(CancellationToken cancellationToken = default)
+    {
+        var refreshToken = session.RefreshToken;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(refreshToken))
+            {
+                await Client.PostAsJsonAsync(
+                    "api/v1/auth/logout",
+                    new { refreshToken },
+                    cancellationToken);
+            }
+        }
+        finally
+        {
+            session.Clear();
+            await sessionStore.ClearAsync();
+        }
+    }
+
+    private async Task<ApiResult> ApplyTokenResponseAsync(
+        HttpResponseMessage response,
+        string successMessage,
+        CancellationToken cancellationToken)
+    {
+        var token = await response.Content.ReadFromJsonAsync<TokenResponse>(cancellationToken: cancellationToken);
+        if (token is null)
+            return ApiResult.Fail("Sunucudan geçerli oturum bilgisi alınamadı.");
+
+        session.SetTokens(token.AccessToken, token.RefreshToken, token.ExpiresIn, token.Role);
+        await sessionStore.SaveAsync(session);
+        return ApiResult.Ok(successMessage);
+    }
+
+    private static async Task<ApiResult> ToResultAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        ApiMessage? body = null;
+        try
+        {
+            body = await response.Content.ReadFromJsonAsync<ApiMessage>(cancellationToken: cancellationToken);
+        }
+        catch
+        {
+            // Non-JSON error responses are represented with a generic message.
+        }
+
+        return response.IsSuccessStatusCode
+            ? ApiResult.Ok(body?.Message ?? "İşlem başarılı.")
+            : ApiResult.Fail(body?.Message ?? $"İşlem başarısız oldu ({(int)response.StatusCode}).");
+    }
+}
+
+public sealed class AuthSession
+{
+    public string? AccessToken { get; private set; }
+    public string? RefreshToken { get; private set; }
+    public string Role { get; private set; } = "Customer";
+    public DateTimeOffset? ExpiresAt { get; private set; }
+    public bool IsAuthenticated => !string.IsNullOrWhiteSpace(AccessToken) && ExpiresAt > DateTimeOffset.UtcNow;
+    public bool CanRefresh => !string.IsNullOrWhiteSpace(RefreshToken);
+    public bool IsAdmin => string.Equals(Role, "Admin", StringComparison.OrdinalIgnoreCase);
+
+    public void SetTokens(string accessToken, string refreshToken, int expiresIn, string? role)
+    {
+        AccessToken = accessToken;
+        RefreshToken = refreshToken;
+        Role = string.IsNullOrWhiteSpace(role) ? "Customer" : role;
+        ExpiresAt = DateTimeOffset.UtcNow.AddSeconds(expiresIn);
+    }
+
+    public AuthSessionSnapshot? Export()
+    {
+        if (string.IsNullOrWhiteSpace(AccessToken) || string.IsNullOrWhiteSpace(RefreshToken) || ExpiresAt is null)
+            return null;
+
+        return new AuthSessionSnapshot(AccessToken, RefreshToken, Role, ExpiresAt.Value);
+    }
+
+    public void Restore(AuthSessionSnapshot snapshot)
+    {
+        AccessToken = snapshot.AccessToken;
+        RefreshToken = snapshot.RefreshToken;
+        Role = string.IsNullOrWhiteSpace(snapshot.Role) ? "Customer" : snapshot.Role;
+        ExpiresAt = snapshot.ExpiresAt;
+    }
+
+    public void Clear()
+    {
+        AccessToken = null;
+        RefreshToken = null;
+        Role = "Customer";
+        ExpiresAt = null;
+    }
+}
+
+public sealed record AuthSessionSnapshot(
+    string AccessToken,
+    string RefreshToken,
+    string Role,
+    DateTimeOffset ExpiresAt);
+
+public sealed record RegisterModel(string FirstName, string LastName, string Phone, string Email, string Password);
+public sealed record LoginModel(string Phone, string Password);
+public sealed record TokenResponse(string AccessToken, string RefreshToken, int ExpiresIn, string? Role);
+public sealed record ApiMessage(string? Message);
+public sealed record ApiResult(bool Success, string Message)
+{
+    public static ApiResult Ok(string message) => new(true, message);
+    public static ApiResult Fail(string message) => new(false, message);
+}

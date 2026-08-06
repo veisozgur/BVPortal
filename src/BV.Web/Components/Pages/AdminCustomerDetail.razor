@@ -1,0 +1,41 @@
+@page "/admin/customers/{Id:guid}"
+@rendermode InteractiveServer
+@using BV.Web.Services
+@inject AdminApiClient Admin
+
+<PageTitle>Müşteri Detayı - Yönetim</PageTitle>
+
+@if (loading)
+{
+    <div class="panel">Müşteri bilgileri yükleniyor...</div>
+}
+else if (detail is null)
+{
+    <div class="panel"><h2>Müşteri bulunamadı</h2></div>
+}
+else
+{
+    <section class="page-heading"><div><span class="eyebrow">Yönetim / Müşteri</span><h1>@detail.FullName</h1><p>@detail.OrganizationName</p></div><a class="button ghost" href="/admin/customers">Listeye Dön</a></section>
+
+    <section class="dashboard-grid">
+        <article class="panel"><h2>İletişim</h2><p><strong>Telefon:</strong> @detail.PhoneNumber</p><p><strong>E-posta:</strong> @detail.Email</p><p><strong>Vergi No:</strong> @detail.TaxNumber</p></article>
+        <article class="panel"><h2>Adres</h2><p>@detail.Address</p><p>@detail.District / @detail.City</p><p><strong>Kayıt:</strong> @detail.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p></article>
+    </section>
+
+    <article class="panel"><div class="panel-heading"><div><h2>Teklif geçmişi</h2><p>@detail.Quotes.Count kayıt</p></div></div>
+        <div class="table-wrap"><table><thead><tr><th>Başlık</th><th>Tür</th><th>Durum</th><th>Tarih</th><th></th></tr></thead><tbody>
+        @foreach (var quote in detail.Quotes)
+        {
+            <tr><td><strong>@quote.Title</strong></td><td>@(quote.Type == 1 ? "Okul" : "Ofis")</td><td>@Status(quote.Status)</td><td>@quote.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy")</td><td><a class="button ghost" href="@($"/admin/quotes/{quote.Id}")">Teklifi Aç</a></td></tr>
+        }
+        </tbody></table></div>
+    </article>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private AdminCustomerDetailModel? detail;
+    private bool loading = true;
+    protected override async Task OnParametersSetAsync() { loading = true; try { detail = await Admin.GetCustomerAsync(Id); } finally { loading = false; } }
+    private static string Status(int status) => status switch { 0 => "Taslak", 1 => "Gönderildi", 2 => "İnceleniyor", 3 => "Cevaplandı", 4 => "İptal", _ => "Bilinmiyor" };
+}

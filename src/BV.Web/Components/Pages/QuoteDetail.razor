@@ -1,0 +1,168 @@
+@page "/tekliflerim/{Id:guid}"
+@rendermode InteractiveServer
+@using BV.Web.Services
+@using Microsoft.JSInterop
+@inject QuoteApiClient Quotes
+@inject IJSRuntime JS
+
+<PageTitle>Teklif Detayı</PageTitle>
+
+@if (quote is null)
+{
+    <div class="panel">Teklif yükleniyor veya bulunamadı.</div>
+}
+else
+{
+    <div class="page-heading">
+        <div><span class="eyebrow">Teklif Detayı</span><h1>@quote.Title</h1><p>@quote.Description</p></div>
+        <div class="form-row">
+            @if (response is not null)
+            {
+                <button class="button primary" @onclick="DownloadPdfAsync" disabled="@busy">PDF İndir</button>
+            }
+            <a class="button ghost" href="/tekliflerim">Listeye Dön</a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(actionMessage))
+    {
+        <div class="status-message @(actionSuccess ? "success" : "error")">@actionMessage</div>
+    }
+
+    <div class="metric-grid">
+        <article><span>Tür</span><strong>@(quote.Type == 1 ? "Okul" : "Ofis")</strong></article>
+        <article><span>Durum</span><strong>@Status(quote.Status)</strong></article>
+        <article><span>Kalem</span><strong>@quote.Items.Count</strong></article>
+        <article><span>Tarih</span><strong>@quote.CreatedAtUtc.ToLocalTime().ToString("dd.MM")</strong></article>
+    </div>
+
+    <div class="panel table-wrap">
+        <h2>Talep Kalemleri</h2>
+        <table><thead><tr><th>Ürün</th><th>Miktar</th><th>Birim</th><th>Açıklama</th></tr></thead><tbody>
+        @foreach (var item in quote.Items)
+        {
+            <tr><td>@item.ProductName</td><td>@item.Quantity</td><td>@item.Unit</td><td>@item.Notes</td></tr>
+        }
+        </tbody></table>
+    </div>
+
+    @if (response is not null)
+    {
+        <div class="panel table-wrap">
+            <div class="panel-heading"><h2>Fiyat Teklifi</h2><strong>Geçerlilik: @response.ValidUntilUtc.ToLocalTime().ToString("dd.MM.yyyy")</strong></div>
+            <table><thead><tr><th>Ürün</th><th>Miktar</th><th>Birim Fiyat</th><th>KDV</th><th>Toplam</th></tr></thead><tbody>
+            @foreach (var item in response.Items)
+            {
+                <tr><td>@item.ProductName</td><td>@item.Quantity @item.Unit</td><td>@item.UnitPrice.ToString("N2") ₺</td><td>%@item.VatRate</td><td>@item.LineTotal.ToString("N2") ₺</td></tr>
+            }
+            </tbody></table>
+            <div class="page-heading"><p>@response.Notes</p><h2>Genel Toplam: @response.Items.Sum(x => x.LineTotal).ToString("N2") ₺</h2></div>
+        </div>
+
+        @if (quote.Status == 4)
+        {
+            <div class="panel">
+                <div class="panel-heading"><div><h2>Teklif kararınız</h2><p>Teklifi kabul edebilir, reddedebilir veya revizyon isteyebilirsiniz.</p></div></div>
+                <div class="form-actions">
+                    <button class="button primary" @onclick="AcceptAsync" disabled="@busy">Kabul Et</button>
+                    <button class="button ghost" @onclick="RejectAsync" disabled="@busy">Reddet</button>
+                </div>
+                <label>Revizyon açıklaması
+                    <textarea class="input" @bind="revisionMessage" placeholder="Değişmesini istediğiniz fiyat, miktar veya ürün bilgilerini yazın."></textarea>
+                </label>
+                <button class="button ghost" @onclick="RequestRevisionAsync" disabled="@busy">Revizyon Talep Et</button>
+            </div>
+        }
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private QuoteDetailModel? quote;
+    private QuoteResponseModel? response;
+    private bool busy;
+    private bool actionSuccess;
+    private string? actionMessage;
+    private string revisionMessage = string.Empty;
+
+    protected override async Task OnParametersSetAsync() => await ReloadAsync();
+
+    private async Task ReloadAsync()
+    {
+        quote = await Quotes.GetAsync(Id);
+        response = quote is null ? null : await Quotes.GetResponseAsync(Id);
+    }
+
+    private async Task AcceptAsync() => await ApplyActionAsync(() => Quotes.AcceptAsync(Id));
+
+    private async Task RejectAsync() => await ApplyActionAsync(() => Quotes.RejectAsync(Id));
+
+    private async Task RequestRevisionAsync()
+    {
+        if (string.IsNullOrWhiteSpace(revisionMessage) || revisionMessage.Trim().Length < 3)
+        {
+            actionSuccess = false;
+            actionMessage = "Revizyon açıklaması en az 3 karakter olmalıdır.";
+            return;
+        }
+
+        await ApplyActionAsync(() => Quotes.RequestRevisionAsync(Id, revisionMessage.Trim()), reload: false);
+        if (actionSuccess)
+            revisionMessage = string.Empty;
+    }
+
+    private async Task ApplyActionAsync(Func<Task<ApiResult>> action, bool reload = true)
+    {
+        busy = true;
+        try
+        {
+            var result = await action();
+            actionSuccess = result.Success;
+            actionMessage = result.Message;
+            if (result.Success && reload)
+                await ReloadAsync();
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task DownloadPdfAsync()
+    {
+        busy = true;
+        actionMessage = null;
+        try
+        {
+            var result = await Quotes.DownloadPdfAsync(Id);
+            if (!result.Success || result.Content is null)
+            {
+                actionSuccess = false;
+                actionMessage = result.Error ?? "PDF indirilemedi.";
+                return;
+            }
+
+            await JS.InvokeVoidAsync(
+                "downloadFileFromBase64",
+                result.FileName ?? $"BV-Teklif-{Id:N}.pdf",
+                "application/pdf",
+                Convert.ToBase64String(result.Content));
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private static string Status(int status) => status switch
+    {
+        1 => "Taslak",
+        2 => "Gönderildi",
+        3 => "İnceleniyor",
+        4 => "Cevaplandı",
+        5 => "Kabul Edildi",
+        6 => "Reddedildi",
+        7 => "İptal",
+        _ => "Bilinmiyor"
+    };
+}

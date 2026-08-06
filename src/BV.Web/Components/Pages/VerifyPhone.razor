@@ -1,0 +1,91 @@
+@page "/telefon-dogrula"
+@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@using BV.Web.Services
+@inject AuthApiClient AuthClient
+@inject NavigationManager Navigation
+
+<PageTitle>Telefon Doğrulama - BV Portal</PageTitle>
+
+<section class="auth-shell">
+    <div class="auth-card">
+        <span class="eyebrow">SMS doğrulama</span>
+        <h1>Telefonunuzu Doğrulayın</h1>
+        <p>Cep telefonunuza gönderilen 6 haneli kodu girin.</p>
+
+        <EditForm Model="form" OnValidSubmit="VerifyAsync">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <label>Telefon</label>
+            <InputText class="form-control" @bind-Value="form.Phone" />
+
+            <label>Doğrulama Kodu</label>
+            <InputText class="form-control code-input" inputmode="numeric" maxlength="6" @bind-Value="form.Code" />
+
+            <button class="btn-primary full" type="submit" disabled="@busy">
+                @(busy ? "Doğrulanıyor..." : "Telefonu Doğrula")
+            </button>
+        </EditForm>
+
+        <button class="btn-secondary full" @onclick="ResendAsync" disabled="@busy">Kodu Yeniden Gönder</button>
+
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <div class="status-message @(success ? "success" : "error")">@message</div>
+        }
+    </div>
+</section>
+
+@code {
+    [SupplyParameterFromQuery(Name = "phone")]
+    public string? PhoneFromQuery { get; set; }
+
+    private readonly VerifyForm form = new();
+    private bool busy;
+    private bool success;
+    private string? message;
+
+    protected override void OnParametersSet()
+    {
+        if (!string.IsNullOrWhiteSpace(PhoneFromQuery))
+            form.Phone = PhoneFromQuery;
+    }
+
+    private async Task VerifyAsync()
+    {
+        busy = true;
+        var result = await AuthClient.VerifyPhoneAsync(form.Phone, form.Code);
+        busy = false;
+        success = result.Success;
+        message = result.Message;
+
+        if (result.Success)
+            Navigation.NavigateTo("/giris");
+    }
+
+    private async Task ResendAsync()
+    {
+        if (string.IsNullOrWhiteSpace(form.Phone))
+        {
+            success = false;
+            message = "Önce telefon numaranızı girin.";
+            return;
+        }
+
+        busy = true;
+        var result = await AuthClient.SendOtpAsync(form.Phone);
+        busy = false;
+        success = result.Success;
+        message = result.Message;
+    }
+
+    private sealed class VerifyForm
+    {
+        [Required, RegularExpression(@"^(\+?90|0)?5\d{9}$", ErrorMessage = "Geçerli bir cep telefonu girin.")]
+        public string Phone { get; set; } = string.Empty;
+
+        [Required, RegularExpression(@"^\d{6}$", ErrorMessage = "Kod 6 haneli olmalıdır.")]
+        public string Code { get; set; } = string.Empty;
+    }
+}

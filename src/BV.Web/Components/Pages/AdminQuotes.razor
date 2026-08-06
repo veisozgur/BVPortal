@@ -1,0 +1,91 @@
+@page "/admin/quotes"
+@inject AdminApiClient Admin
+@inject NavigationManager Navigation
+
+<PageTitle>Teklif Yönetimi</PageTitle>
+
+<section class="page-heading">
+    <div><span class="eyebrow">Yönetim Paneli</span><h1>Teklifler</h1><p>Müşteri taleplerini arayın ve operasyon detayına geçin.</p></div>
+    <a class="button ghost" href="/admin">Dashboard</a>
+</section>
+
+<div class="panel">
+    <div class="form-grid two-columns">
+        <label>Arama<InputText class="input" @bind-Value="search" placeholder="Müşteri, telefon, e-posta veya başlık" /></label>
+        <div class="form-actions"><button class="button primary" @onclick="LoadAsync">Ara</button></div>
+    </div>
+</div>
+
+@if (loading)
+{
+    <div class="panel">Teklifler yükleniyor...</div>
+}
+else if (!string.IsNullOrWhiteSpace(error))
+{
+    <div class="panel"><h2>Yönetici erişimi gerekli</h2><p>@error</p></div>
+}
+else if (items.Count == 0)
+{
+    <div class="panel empty-state"><h2>Teklif bulunamadı</h2><p>Arama ölçütlerini değiştirerek yeniden deneyin.</p></div>
+}
+else
+{
+    <div class="panel table-wrap">
+        <table>
+            <thead><tr><th>Müşteri</th><th>Teklif</th><th>Tür</th><th>Durum</th><th>Kalem</th><th>Tarih</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var item in items)
+            {
+                <tr>
+                    <td><strong>@item.CustomerName</strong><small class="table-subtext">@item.CustomerPhone · @item.CustomerEmail</small></td>
+                    <td>@item.Title</td>
+                    <td>@(item.Type == 1 ? "Okul" : "Ofis")</td>
+                    <td><span class="badge @(item.Status == 3 ? "success" : "pending")">@Status(item.Status)</span></td>
+                    <td>@item.ItemCount</td>
+                    <td>@item.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                    <td><button class="button ghost" @onclick="() => Open(item.Id)">Detay</button></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<AdminQuoteListItemModel> items = [];
+    private string? search;
+    private string? error;
+    private bool loading = true;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        error = null;
+        try
+        {
+            items = await Admin.ListQuotesAsync(search);
+        }
+        catch (HttpRequestException ex)
+        {
+            error = $"Teklif listesi alınamadı: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void Open(Guid id) => Navigation.NavigateTo($"/admin/quotes/{id}");
+
+    private static string Status(int status) => status switch
+    {
+        0 => "Taslak",
+        1 => "Gönderildi",
+        2 => "İnceleniyor",
+        3 => "Cevaplandı",
+        4 => "İptal",
+        _ => "Bilinmiyor"
+    };
+}

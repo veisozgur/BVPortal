@@ -1,0 +1,84 @@
+@inherits LayoutComponentBase
+@using BV.Web.Services
+@inject AuthSession Session
+@inject AuthApiClient Auth
+
+<div class="app-shell">
+    <aside class="sidebar">
+        <a class="brand" href="/">
+            <span class="brand-mark">BV</span>
+            <span><strong>BV Portal</strong><small>Teklif Yönetimi</small></span>
+        </a>
+
+        <nav>
+            @if (!sessionReady)
+            {
+                <span>Oturum kontrol ediliyor...</span>
+            }
+            else if (Session.IsAdmin)
+            {
+                <a href="/admin">Yönetim Paneli</a>
+                <a href="/admin/quotes">Teklif Operasyonları</a>
+                <a href="/admin/customers">Müşteriler</a>
+                <a href="/cikis">Güvenli Çıkış</a>
+            }
+            else if (Session.IsAuthenticated)
+            {
+                <a href="/panel">Müşteri Paneli</a>
+                <a href="/yeni-teklif">Yeni Teklif</a>
+                <a href="/tekliflerim">Tekliflerim</a>
+                <a href="/profil">Profilim</a>
+                <a href="/cikis">Güvenli Çıkış</a>
+            }
+            else
+            {
+                <a href="/giris">Giriş Yap</a>
+                <a href="/kayit">Kayıt Ol</a>
+                <a href="/telefon-dogrula">Telefon Doğrula</a>
+            }
+        </nav>
+
+        <div class="sidebar-footer">
+            <span>Güvenli erişim</span>
+            <small>SMS doğrulamalı müşteri portalı</small>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="topbar">
+            <div>
+                <span class="eyebrow">BV Kırtasiye</span>
+                <strong>Okul ve ofis teklif platformu</strong>
+            </div>
+            @if (sessionReady)
+            {
+                <div class="form-row">
+                    @if (Session.IsAuthenticated)
+                    {
+                        <span class="eyebrow">@(Session.IsAdmin ? "Yönetici" : "Müşteri") oturumu</span>
+                        <a class="button ghost" href="/cikis">Çıkış</a>
+                    }
+                    else
+                    {
+                        <a class="button ghost" href="/giris">Giriş Yap</a>
+                    }
+                </div>
+            }
+        </header>
+        <div class="page-content">@Body</div>
+    </main>
+</div>
+
+@code {
+    private bool sessionReady;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        await Auth.RestoreAsync();
+        sessionReady = true;
+        StateHasChanged();
+    }
+}

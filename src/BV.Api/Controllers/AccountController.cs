@@ -16,7 +16,8 @@ public sealed class AccountController(
     IPasswordHasher passwordHasher,
     IJwtTokenService jwtTokens,
     IRefreshTokenRepository refreshTokens,
-    IOtpService otpService) : ControllerBase
+    IOtpService otpService,
+    IConfiguration configuration) : ControllerBase
 {
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterRequest request, CancellationToken cancellationToken)
@@ -42,6 +43,8 @@ public sealed class AccountController(
         if (!user.IsPhoneVerified)
             return StatusCode(StatusCodes.Status403Forbidden, new { message = "Telefon doğrulaması gerekli." });
 
+        await ApplyConfiguredAdminRoleAsync(user, cancellationToken);
+
         var rawRefreshToken = jwtTokens.CreateRefreshToken();
         await refreshTokens.AddAsync(new RefreshToken(user.Id, HashToken(rawRefreshToken), DateTime.UtcNow.AddDays(30)), cancellationToken);
         await refreshTokens.SaveChangesAsync(cancellationToken);
@@ -58,6 +61,8 @@ public sealed class AccountController(
         var user = await users.GetByIdAsync(storedToken.UserId, cancellationToken);
         if (user is null || !user.IsActive)
             return Unauthorized(new { message = "Kullanıcı hesabı aktif değil." });
+
+        await ApplyConfiguredAdminRoleAsync(user, cancellationToken);
 
         storedToken.Revoke(DateTime.UtcNow);
         var newRawToken = jwtTokens.CreateRefreshToken();
@@ -93,12 +98,36 @@ public sealed class AccountController(
         return Ok(new { message = "Telefon başarıyla doğrulandı." });
     }
 
+    private async Task ApplyConfiguredAdminRoleAsync(User user, CancellationToken cancellationToken)
+    {
+        var configuredPhones = configuration.GetSection("Admin:PhoneNumbers").Get<string[]>() ?? [];
+        var normalizedUserPhone = NormalizePhone(user.Phone);
+        var isConfiguredAdmin = configuredPhones.Any(phone => NormalizePhone(phone) == normalizedUserPhone);
+
+        if (isConfiguredAdmin && user.Role != UserRole.Admin)
+        {
+            user.AssignRole(UserRole.Admin);
+            await users.SaveChangesAsync(cancellationToken);
+        }
+    }
+
     private object CreateTokenResponse(User user, string refreshToken) => new
     {
-        accessToken = jwtTokens.CreateAccessToken(user, ["Customer"]),
+        accessToken = jwtTokens.CreateAccessToken(user, [user.Role.ToString()]),
         refreshToken,
-        expiresIn = 900
+        expiresIn = 900,
+        role = user.Role.ToString()
     };
+
+    private static string NormalizePhone(string phone)
+    {
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+        if (digits.StartsWith("90") && digits.Length == 12)
+            digits = digits[2..];
+        if (digits.StartsWith("0") && digits.Length == 11)
+            digits = digits[1..];
+        return digits;
+    }
 
     private static string HashToken(string token) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 

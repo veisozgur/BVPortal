@@ -1,0 +1,28 @@
+@page "/customer"
+
+<PageTitle>Müşteri Paneli</PageTitle>
+
+<section class="page-heading">
+    <div><span class="eyebrow">Müşteri Portalı</span><h1>Hoş geldiniz</h1><p>Teklif taleplerinizi oluşturun ve yanıtları tek ekrandan takip edin.</p></div>
+    <a class="button primary" href="/customer/new-quote">Yeni Teklif Oluştur</a>
+</section>
+
+<section class="metric-grid">
+    <article><span>Toplam Teklif</span><strong>12</strong><small>Tüm talepleriniz</small></article>
+    <article><span>Bekleyen</span><strong>4</strong><small>İnceleme aşamasında</small></article>
+    <article><span>Cevaplanan</span><strong>8</strong><small>Fiyatlandırılmış teklifler</small></article>
+    <article><span>Son Bildirim</span><strong>Bugün</strong><small>SMS ile gönderildi</small></article>
+</section>
+
+<section class="panel">
+    <div class="panel-heading"><div><h2>Son teklifler</h2><p>En son oluşturduğunuz teklif talepleri.</p></div><a href="/customer/quotes">Tümünü Gör</a></div>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Başlık</th><th>Tür</th><th>Durum</th><th>Tarih</th></tr></thead>
+            <tbody>
+                <tr><td>2026-2027 okul kırtasiye listesi</td><td>Okul</td><td><span class="badge pending">İnceleniyor</span></td><td>06.08.2026</td></tr>
+                <tr><td>Aylık ofis sarf malzemeleri</td><td>Ofis</td><td><span class="badge success">Cevaplandı</span></td><td>04.08.2026</td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
