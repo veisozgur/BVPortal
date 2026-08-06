@@ -3,15 +3,16 @@
 @using System.ComponentModel.DataAnnotations
 @using BV.Web.Services
 @inject AuthApiClient AuthClient
+@inject AuthSession Session
 @inject NavigationManager Navigation
 
 <PageTitle>Giriş - BV Portal</PageTitle>
 
 <section class="auth-shell">
     <div class="auth-card">
-        <span class="eyebrow">Güvenli müşteri girişi</span>
+        <span class="eyebrow">Güvenli portal girişi</span>
         <h1>BV Portal'a Giriş</h1>
-        <p>Telefon numaranız ve şifrenizle tekliflerinize erişin.</p>
+        <p>Telefon numaranız ve şifrenizle müşteri veya yönetim paneline erişin.</p>
 
         <EditForm Model="form" OnValidSubmit="SubmitAsync">
             <DataAnnotationsValidator />
@@ -55,7 +56,7 @@
         message = result.Message;
 
         if (result.Success)
-            Navigation.NavigateTo("/panel");
+            Navigation.NavigateTo(Session.IsAdmin ? "/admin" : "/panel");
     }
 
     private sealed class LoginForm
