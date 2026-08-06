@@ -1,0 +1,164 @@
+@page "/admin/schools"
+@rendermode InteractiveServer
+@using BV.Web.Services
+@inject AdminSchoolApiClient Schools
+
+<PageTitle>Okul Yönetimi | BV Portal</PageTitle>
+
+<div class="page-heading">
+    <div>
+        <span class="eyebrow">Okul Sezonu</span>
+        <h1>Okul ve Sınıf Yönetimi</h1>
+        <p>Okulları, yetkili bilgilerini ve sınıf/kademe tanımlarını yönetin.</p>
+    </div>
+    <button class="button" @onclick="NewSchool">Yeni Okul</button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <div class="form-message @(success ? "success-message" : "error-message")">@message</div>
+}
+
+<section class="panel">
+    <div class="form-row">
+        <input class="input" placeholder="Okul adı veya kodu ara" @bind="search" />
+        <select class="input" @bind="activeFilter">
+            <option value="">Tüm durumlar</option>
+            <option value="true">Aktif</option>
+            <option value="false">Pasif</option>
+        </select>
+        <button class="button ghost" @onclick="LoadAsync">Ara</button>
+    </div>
+</section>
+
+<div class="form-grid">
+    <section class="panel">
+        <h2>Okullar</h2>
+        @if (loading)
+        {
+            <p>Okullar yükleniyor...</p>
+        }
+        else if (items.Count == 0)
+        {
+            <p>Henüz okul kaydı bulunmuyor.</p>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Okul</th><th>Kod</th><th>Sınıf</th><th>Durum</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach (var item in items)
+                    {
+                        <tr>
+                            <td><strong>@item.Name</strong><br /><small>@item.ContactName · @item.Phone</small></td>
+                            <td>@(item.Code ?? "-")</td>
+                            <td>@item.GradeCount</td>
+                            <td>@(item.IsActive ? "Aktif" : "Pasif")</td>
+                            <td><button class="button ghost" @onclick="() => EditSchoolAsync(item.Id)">Düzenle</button></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <section class="panel">
+        <h2>@(editingSchoolId.HasValue ? "Okulu Düzenle" : "Yeni Okul")</h2>
+        <div class="form-grid">
+            <label>Okul Adı<input class="input" @bind="schoolName" /></label>
+            <label>Okul Kodu<input class="input" @bind="schoolCode" /></label>
+            <label>Yetkili<input class="input" @bind="contactName" /></label>
+            <label>Telefon<input class="input" @bind="phone" /></label>
+            <label>E-posta<input class="input" @bind="email" /></label>
+            <label>Adres<textarea class="input" rows="3" @bind="address"></textarea></label>
+            <label><input type="checkbox" @bind="schoolActive" /> Aktif</label>
+        </div>
+        <div class="form-row">
+            <button class="button" @onclick="SaveSchoolAsync" disabled="@saving">Kaydet</button>
+            <button class="button ghost" @onclick="NewSchool">Temizle</button>
+        </div>
+    </section>
+</div>
+
+@if (detail is not null)
+{
+    <section class="panel">
+        <div class="page-heading"><div><h2>@detail.Name – Sınıf/Kademeler</h2></div><button class="button ghost" @onclick="NewGrade">Yeni Sınıf</button></div>
+        <div class="form-grid">
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Ad</th><th>Sıra</th><th>Durum</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach (var grade in detail.Grades)
+                    {
+                        <tr><td>@grade.Name</td><td>@grade.SortOrder</td><td>@(grade.IsActive ? "Aktif" : "Pasif")</td><td><button class="button ghost" @onclick="() => EditGrade(grade)">Düzenle</button></td></tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <div>
+                <label>Sınıf/Kademe Adı<input class="input" @bind="gradeName" /></label>
+                <label>Sıra<input class="input" type="number" @bind="gradeSortOrder" /></label>
+                <label><input type="checkbox" @bind="gradeActive" /> Aktif</label>
+                <button class="button" @onclick="SaveGradeAsync" disabled="@saving">Sınıfı Kaydet</button>
+            </div>
+        </div>
+    </section>
+}
+
+@code {
+    private IReadOnlyList<SchoolListItemModel> items = [];
+    private SchoolDetailModel? detail;
+    private bool loading = true, saving, success;
+    private string? message, search, activeFilter;
+    private Guid? editingSchoolId, editingGradeId;
+    private string schoolName = "", schoolCode = "", contactName = "", phone = "", email = "", address = "";
+    private bool schoolActive = true;
+    private string gradeName = "";
+    private int gradeSortOrder;
+    private bool gradeActive = true;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        bool? active = bool.TryParse(activeFilter, out var parsed) ? parsed : null;
+        items = await Schools.ListAsync(search, active);
+        loading = false;
+    }
+
+    private void NewSchool()
+    {
+        editingSchoolId = null; detail = null; schoolName = schoolCode = contactName = phone = email = address = ""; schoolActive = true; NewGrade();
+    }
+
+    private async Task EditSchoolAsync(Guid id)
+    {
+        detail = await Schools.GetAsync(id);
+        if (detail is null) return;
+        editingSchoolId = detail.Id; schoolName = detail.Name; schoolCode = detail.Code ?? ""; contactName = detail.ContactName ?? ""; phone = detail.Phone ?? ""; email = detail.Email ?? ""; address = detail.Address ?? ""; schoolActive = detail.IsActive; NewGrade();
+    }
+
+    private async Task SaveSchoolAsync()
+    {
+        saving = true;
+        var result = await Schools.SaveAsync(editingSchoolId, new SaveSchoolModel(schoolName, schoolCode, contactName, phone, email, address, schoolActive));
+        success = result.Success; message = result.Message; saving = false;
+        if (result.Success) { await LoadAsync(); if (editingSchoolId.HasValue) await EditSchoolAsync(editingSchoolId.Value); }
+    }
+
+    private void NewGrade() { editingGradeId = null; gradeName = ""; gradeSortOrder = 0; gradeActive = true; }
+    private void EditGrade(SchoolGradeModel grade) { editingGradeId = grade.Id; gradeName = grade.Name; gradeSortOrder = grade.SortOrder; gradeActive = grade.IsActive; }
+
+    private async Task SaveGradeAsync()
+    {
+        if (detail is null) return;
+        saving = true;
+        var result = await Schools.SaveGradeAsync(detail.Id, editingGradeId, new SaveSchoolGradeModel(gradeName, gradeSortOrder, gradeActive));
+        success = result.Success; message = result.Message; saving = false;
+        if (result.Success) { await EditSchoolAsync(detail.Id); NewGrade(); await LoadAsync(); }
+    }
+}
