@@ -1,5 +1,6 @@
 using BV.Web.Components;
 using BV.Web.Services;
+using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,7 +12,9 @@ builder.Services.AddHttpClient("BV.Api", client =>
     client.BaseAddress = new Uri(builder.Configuration["ApiBaseUrl"] ?? "https://localhost:7001/");
 });
 
+builder.Services.AddScoped<ProtectedLocalStorage>();
 builder.Services.AddScoped<AuthSession>();
+builder.Services.AddScoped<AuthSessionStore>();
 builder.Services.AddScoped<AuthApiClient>();
 builder.Services.AddScoped<QuoteApiClient>();
 builder.Services.AddScoped<ProfileApiClient>();
