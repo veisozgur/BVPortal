@@ -1,5 +1,8 @@
 @page "/tekliflerim/{Id:guid}"
+@rendermode InteractiveServer
+@using BV.Web.Services
 @inject QuoteApiClient Quotes
+@inject IJSRuntime JS
 
 <PageTitle>Teklif Detayı</PageTitle>
 
@@ -9,7 +12,22 @@
 }
 else
 {
-    <div class="page-heading"><div><span class="eyebrow">Teklif Detayı</span><h1>@quote.Title</h1><p>@quote.Description</p></div><a class="button ghost" href="/tekliflerim">Listeye Dön</a></div>
+    <div class="page-heading">
+        <div><span class="eyebrow">Teklif Detayı</span><h1>@quote.Title</h1><p>@quote.Description</p></div>
+        <div class="form-row">
+            @if (response is not null)
+            {
+                <button class="button primary" @onclick="DownloadPdfAsync" disabled="@downloading">@(downloading ? "PDF hazırlanıyor..." : "PDF İndir")</button>
+            }
+            <a class="button ghost" href="/tekliflerim">Listeye Dön</a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(downloadError))
+    {
+        <div class="status-message error">@downloadError</div>
+    }
+
     <div class="metric-grid"><article><span>Tür</span><strong>@(quote.Type == 1 ? "Okul" : "Ofis")</strong></article><article><span>Durum</span><strong>@Status(quote.Status)</strong></article><article><span>Kalem</span><strong>@quote.Items.Count</strong></article><article><span>Tarih</span><strong>@quote.CreatedAtUtc.ToLocalTime().ToString("dd.MM")</strong></article></div>
     <div class="panel table-wrap"><h2>Talep Kalemleri</h2><table><thead><tr><th>Ürün</th><th>Miktar</th><th>Birim</th><th>Açıklama</th></tr></thead><tbody>@foreach (var item in quote.Items){<tr><td>@item.ProductName</td><td>@item.Quantity</td><td>@item.Unit</td><td>@item.Notes</td></tr>}</tbody></table></div>
 
@@ -23,6 +41,40 @@ else
     [Parameter] public Guid Id { get; set; }
     private QuoteDetailModel? quote;
     private QuoteResponseModel? response;
-    protected override async Task OnParametersSetAsync() { quote = await Quotes.GetAsync(Id); if (quote is not null) response = await Quotes.GetResponseAsync(Id); }
+    private bool downloading;
+    private string? downloadError;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        quote = await Quotes.GetAsync(Id);
+        if (quote is not null)
+            response = await Quotes.GetResponseAsync(Id);
+    }
+
+    private async Task DownloadPdfAsync()
+    {
+        downloading = true;
+        downloadError = null;
+        try
+        {
+            var result = await Quotes.DownloadPdfAsync(Id);
+            if (!result.Success || result.Content is null)
+            {
+                downloadError = result.Error ?? "PDF indirilemedi.";
+                return;
+            }
+
+            await JS.InvokeVoidAsync(
+                "downloadFileFromBase64",
+                result.FileName ?? $"BV-Teklif-{Id:N}.pdf",
+                "application/pdf",
+                Convert.ToBase64String(result.Content));
+        }
+        finally
+        {
+            downloading = false;
+        }
+    }
+
     private static string Status(int status) => status switch { 0 => "Taslak", 1 => "Gönderildi", 2 => "İnceleniyor", 3 => "Cevaplandı", 4 => "İptal", _ => "Bilinmiyor" };
 }
