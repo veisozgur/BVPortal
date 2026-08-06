@@ -1,5 +1,6 @@
 using BV.Domain.Auditing;
 using BV.Domain.Authentication;
+using BV.Domain.Catalog;
 using BV.Domain.Customers;
 using BV.Domain.Notifications;
 using BV.Domain.Quotes;
@@ -22,6 +23,8 @@ public sealed class BVPortalDbContext(DbContextOptions<BVPortalDbContext> option
     public DbSet<QuoteResponseItem> QuoteResponseItems => Set<QuoteResponseItem>();
     public DbSet<QuoteNotification> QuoteNotifications => Set<QuoteNotification>();
     public DbSet<QuoteOperationNote> QuoteOperationNotes => Set<QuoteOperationNote>();
+    public DbSet<ProductCategory> ProductCategories => Set<ProductCategory>();
+    public DbSet<Product> Products => Set<Product>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
