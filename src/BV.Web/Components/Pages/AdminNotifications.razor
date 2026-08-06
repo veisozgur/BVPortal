@@ -36,7 +36,7 @@
 {
     <section class="panel">Bildirim kayıtları yükleniyor...</section>
 }
-else if (page is null)
+else if (notificationPage is null)
 {
     <section class="panel empty-state">
         <h2>Kayıtlar alınamadı</h2>
@@ -46,10 +46,10 @@ else if (page is null)
 else
 {
     <div class="metric-grid">
-        <article class="metric-card"><span>Toplam</span><strong>@page.TotalCount</strong></article>
-        <article class="metric-card"><span>Gönderildi</span><strong>@page.SentCount</strong></article>
-        <article class="metric-card"><span>Başarısız</span><strong>@page.FailedCount</strong></article>
-        <article class="metric-card"><span>Bekliyor</span><strong>@page.PendingCount</strong></article>
+        <article class="metric-card"><span>Toplam</span><strong>@notificationPage.TotalCount</strong></article>
+        <article class="metric-card"><span>Gönderildi</span><strong>@notificationPage.SentCount</strong></article>
+        <article class="metric-card"><span>Başarısız</span><strong>@notificationPage.FailedCount</strong></article>
+        <article class="metric-card"><span>Bekliyor</span><strong>@notificationPage.PendingCount</strong></article>
     </div>
 
     @if (!string.IsNullOrWhiteSpace(message))
@@ -58,7 +58,7 @@ else
     }
 
     <section class="panel">
-        @if (page.Items.Count == 0)
+        @if (notificationPage.Items.Count == 0)
         {
             <div class="empty-state">
                 <h2>Bildirim bulunamadı</h2>
@@ -80,7 +80,7 @@ else
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var item in page.Items)
+                        @foreach (var item in notificationPage.Items)
                         {
                             <tr>
                                 <td><a href="@($"/admin/quotes/{item.QuoteRequestId}")">@item.Title</a></td>
@@ -112,7 +112,7 @@ else
 }
 
 @code {
-    private NotificationPageModel? page;
+    private NotificationPageModel? notificationPage;
     private string channel = string.Empty;
     private string statusFilter = string.Empty;
     private bool loading = true;
@@ -125,7 +125,7 @@ else
     private async Task LoadAsync()
     {
         loading = true;
-        page = await Notifications.ListAsync(channel, statusFilter);
+        notificationPage = await Notifications.ListAsync(channel, statusFilter);
         loading = false;
     }
 
