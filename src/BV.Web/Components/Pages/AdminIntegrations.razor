@@ -39,19 +39,50 @@ else
     </div>
 
     <section class="panel">
+        <div class="panel-heading compact">
+            <div>
+                <h2>Mikro katalog senkronizasyonu</h2>
+                <p>Mikro Bridge üzerinden ürün, fiyat ve stok bilgilerini BV Portal kataloğuna aktarın.</p>
+            </div>
+            <button class="button primary" @onclick="SyncMikroAsync" disabled="@(syncing || !status.Mikro.Ready)">
+                @(syncing ? "Senkronize ediliyor..." : "Şimdi Senkronize Et")
+            </button>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(syncMessage))
+        {
+            <div class="form-message @(syncSuccess ? "success-message" : "error-message")">@syncMessage</div>
+        }
+
+        @if (syncResult is not null)
+        {
+            <div class="metric-grid">
+                <article class="metric-card"><span>Yeni kategori</span><strong>@syncResult.CreatedCategories</strong></article>
+                <article class="metric-card"><span>Yeni ürün</span><strong>@syncResult.CreatedProducts</strong></article>
+                <article class="metric-card"><span>Güncellenen ürün</span><strong>@syncResult.UpdatedProducts</strong></article>
+                <article class="metric-card"><span>Atlanan satır</span><strong>@syncResult.SkippedRows</strong></article>
+            </div>
+        }
+    </section>
+
+    <section class="panel">
         <h2>Canlı ortam kontrol listesi</h2>
         <p>Hazır olmayan servisler için ilgili ayarları API ortam değişkenleri veya güvenli secret yönetimi üzerinden tanımlayın.</p>
         <ul>
             <li>NetGSM: kullanıcı kodu, parola ve SMS başlığı</li>
             <li>E-posta: SMTP sunucusu, port ve gönderen adresi</li>
-            <li>Mikro ERP: bağlantı bilgisi ve firma kodu</li>
+            <li>Mikro ERP: Bridge adresi, API anahtarı ve firma kodu</li>
         </ul>
     </section>
 }
 
 @code {
     private IntegrationStatusModel? status;
+    private MikroSyncResultModel? syncResult;
     private bool loading = true;
+    private bool syncing;
+    private bool syncSuccess;
+    private string? syncMessage;
 
     private IEnumerable<IntegrationProviderStatus> Providers => status is null
         ? []
@@ -64,5 +95,21 @@ else
         loading = true;
         status = await Integrations.GetAsync();
         loading = false;
+    }
+
+    private async Task SyncMikroAsync()
+    {
+        syncing = true;
+        syncMessage = null;
+        syncResult = null;
+
+        var result = await Integrations.SyncMikroCatalogAsync();
+        syncSuccess = result.Success;
+        syncMessage = result.Message;
+        syncResult = result.Data;
+        syncing = false;
+
+        if (result.Success)
+            await LoadAsync();
     }
 }
