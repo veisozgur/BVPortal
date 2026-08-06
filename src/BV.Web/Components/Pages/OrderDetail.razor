@@ -53,6 +53,33 @@ else
         }
     </section>
 
+    <section class="panel">
+        <h2>Durum Geçmişi</h2>
+        @if (timeline.Count == 0)
+        {
+            <p>Henüz kayıtlı bir durum değişikliği bulunmuyor.</p>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Tarih</th><th>Önceki Durum</th><th>Yeni Durum</th><th>Açıklama</th></tr></thead>
+                    <tbody>
+                        @foreach (var entry in timeline)
+                        {
+                            <tr>
+                                <td>@entry.ChangedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                <td>@StatusName(entry.FromStatus)</td>
+                                <td><strong>@StatusName(entry.ToStatus)</strong></td>
+                                <td>@(string.IsNullOrWhiteSpace(entry.Note) ? "—" : entry.Note)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
     @if (!string.IsNullOrWhiteSpace(model.CustomerNote))
     {
         <section class="panel">
@@ -86,12 +113,14 @@ else
 @code {
     [Parameter] public Guid OrderId { get; set; }
     private CustomerOrderDetailModel? model;
+    private IReadOnlyList<OrderTimelineItemModel> timeline = [];
     private bool loading = true;
 
     protected override async Task OnParametersSetAsync()
     {
         loading = true;
         model = await Orders.GetByIdAsync(OrderId);
+        timeline = model is null ? [] : await Orders.GetTimelineAsync(OrderId);
         loading = false;
     }
 
