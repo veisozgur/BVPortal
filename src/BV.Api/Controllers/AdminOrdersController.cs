@@ -1,3 +1,5 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using BV.Domain.Orders;
 using BV.Domain.Quotes;
 using BV.Persistence;
@@ -167,9 +169,14 @@ public sealed class AdminOrdersController(BVPortalDbContext dbContext) : Control
         if (order is null)
             return NotFound(new { message = "Sipariş bulunamadı." });
 
+        var previousStatus = order.Status;
+
         try
         {
             order.ChangeStatus(request.Status);
+            await dbContext.OrderStatusHistories.AddAsync(
+                new OrderStatusHistory(order.Id, previousStatus, order.Status, request.Note, GetActorUserId()),
+                cancellationToken);
             await dbContext.SaveChangesAsync(cancellationToken);
         }
         catch (InvalidOperationException exception)
@@ -206,10 +213,17 @@ public sealed class AdminOrdersController(BVPortalDbContext dbContext) : Control
         return Ok(new { message = "Sipariş notları güncellendi." });
     }
 
+    private Guid? GetActorUserId()
+    {
+        var value = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        return Guid.TryParse(value, out var userId) ? userId : null;
+    }
+
     private static string GenerateOrderNumber()
         => $"BV-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
 }
 
 public sealed record CreateOrderFromQuoteRequest(string? CustomerNote, string? InternalNote);
-public sealed record ChangeOrderStatusRequest(OrderStatus Status);
+public sealed record ChangeOrderStatusRequest(OrderStatus Status, string? Note);
 public sealed record UpdateOrderNotesRequest(string? CustomerNote, string? InternalNote);
