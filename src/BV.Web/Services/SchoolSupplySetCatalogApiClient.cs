@@ -29,16 +29,16 @@ public sealed class SchoolSupplySetCatalogApiClient(IHttpClientFactory httpClien
             : await CreateClient().GetFromJsonAsync<List<SchoolSupplySetOptionModel>>(
                 $"api/v1/school-supply-sets?schoolId={schoolId}&gradeId={gradeId}", cancellationToken) ?? [];
 
-    public async Task<SchoolSupplySetDetailModel?> GetAsync(Guid setId, CancellationToken cancellationToken = default) =>
+    public async Task<SchoolSupplySetCatalogDetailModel?> GetAsync(Guid setId, CancellationToken cancellationToken = default) =>
         !session.IsAuthenticated || setId == Guid.Empty
             ? null
-            : await CreateClient().GetFromJsonAsync<SchoolSupplySetDetailModel>($"api/v1/school-supply-sets/{setId}", cancellationToken);
+            : await CreateClient().GetFromJsonAsync<SchoolSupplySetCatalogDetailModel>($"api/v1/school-supply-sets/{setId}", cancellationToken);
 }
 
 public sealed record SchoolOptionModel(Guid Id, string Name, string? Code);
 public sealed record SchoolGradeOptionModel(Guid Id, string Name);
 public sealed record SchoolSupplySetOptionModel(Guid Id, string Name, int AcademicYear, string? Description, int ItemCount);
-public sealed record SchoolSupplySetDetailModel(
+public sealed record SchoolSupplySetCatalogDetailModel(
     Guid Id,
     Guid SchoolId,
     Guid SchoolGradeId,
