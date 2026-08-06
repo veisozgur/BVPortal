@@ -5,6 +5,7 @@
 @using BV.Web.Services
 @inject QuoteApiClient QuoteApi
 @inject ExcelQuoteImporter ExcelImporter
+@inject CatalogSelection CatalogSelection
 @inject AuthSession Session
 @inject NavigationManager Navigation
 
@@ -54,6 +55,11 @@ else
                     </label>
                 </div>
 
+                @if (!string.IsNullOrWhiteSpace(catalogMessage))
+                {
+                    <div class="form-message success-message">@catalogMessage</div>
+                }
+
                 <div class="panel excel-import-panel">
                     <div class="panel-heading compact">
                         <div>
@@ -74,7 +80,10 @@ else
                         <h2>Ürün kalemleri</h2>
                         <p>Her ürün için miktar ve birim girin.</p>
                     </div>
-                    <button type="button" class="button ghost" @onclick="AddItem">+ Ürün Ekle</button>
+                    <div class="form-row">
+                        <a class="button ghost" href="/katalog">Katalogdan Ekle</a>
+                        <button type="button" class="button ghost" @onclick="AddItem">+ Ürün Ekle</button>
+                    </div>
                 </div>
 
                 <div class="quote-items">
@@ -136,8 +145,30 @@ else
     private bool importSuccess;
     private string? message;
     private string? importMessage;
+    private string? catalogMessage;
 
-    protected override void OnInitialized() => AddItem();
+    protected override void OnInitialized()
+    {
+        if (CatalogSelection.Count == 0)
+        {
+            AddItem();
+            return;
+        }
+
+        foreach (var selected in CatalogSelection.Items)
+        {
+            form.Items.Add(new CreateQuoteItemModel
+            {
+                ProductName = selected.ProductName,
+                Quantity = selected.Quantity,
+                Unit = selected.Unit,
+                Description = selected.Description
+            });
+        }
+
+        catalogMessage = $"Katalogdan {CatalogSelection.Count} ürün teklif formuna aktarıldı.";
+        CatalogSelection.Clear();
+    }
 
     private void AddItem() => form.Items.Add(new CreateQuoteItemModel());
 
@@ -200,6 +231,7 @@ else
             form.Description = null;
             form.Items.Clear();
             importMessage = null;
+            catalogMessage = null;
             AddItem();
         }
     }

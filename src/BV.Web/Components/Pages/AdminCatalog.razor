@@ -1,0 +1,173 @@
+@page "/admin/catalog"
+@rendermode InteractiveServer
+@using BV.Web.Services
+@inject AdminCatalogApiClient Catalog
+
+<PageTitle>Ürün Kataloğu Yönetimi</PageTitle>
+
+<div class="page-heading">
+    <div>
+        <span class="eyebrow">Yönetim Paneli</span>
+        <h1>Ürün kataloğu</h1>
+        <p>Kategorileri, ürünleri, fiyatları ve stok miktarlarını yönetin.</p>
+    </div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <div class="form-message @(success ? "success-message" : "error-message")">@message</div>
+}
+
+<div class="quote-builder">
+    <section class="panel">
+        <div class="panel-heading compact"><h2>Kategoriler</h2></div>
+        <div class="form-grid single">
+            <label>Kategori adı <input class="input" @bind="categoryForm.Name" /></label>
+            <label>Açıklama <input class="input" @bind="categoryForm.Description" /></label>
+            <label class="check-label"><input type="checkbox" @bind="categoryForm.IsActive" /> Aktif</label>
+            <button class="button primary" @onclick="SaveCategoryAsync">@(editingCategoryId.HasValue ? "Kategoriyi Güncelle" : "Kategori Ekle")</button>
+        </div>
+        <div class="table-wrap">
+            <table><thead><tr><th>Ad</th><th>Durum</th><th></th></tr></thead><tbody>
+            @foreach (var category in categories)
+            {
+                <tr><td>@category.Name</td><td>@(category.IsActive ? "Aktif" : "Pasif")</td><td><button class="button ghost" @onclick="() => EditCategory(category)">Düzenle</button></td></tr>
+            }
+            </tbody></table>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-heading compact"><h2>Ürünler</h2></div>
+        <div class="form-grid">
+            <label>Kategori
+                <select class="input" @bind="productForm.CategoryId">
+                    <option value="">Seçiniz</option>
+                    @foreach (var category in categories.Where(x => x.IsActive))
+                    {
+                        <option value="@category.Id">@category.Name</option>
+                    }
+                </select>
+            </label>
+            <label>Ürün kodu <input class="input" @bind="productForm.Code" disabled="@editingProductId.HasValue" /></label>
+            <label>Ürün adı <input class="input" @bind="productForm.Name" /></label>
+            <label>Marka <input class="input" @bind="productForm.Brand" /></label>
+            <label>Birim <input class="input" @bind="productForm.Unit" /></label>
+            <label>Liste fiyatı <input class="input" type="number" step="0.01" @bind="productForm.ListPrice" /></label>
+            <label>KDV oranı <input class="input" type="number" step="0.01" @bind="productForm.VatRate" /></label>
+            <label>Stok <input class="input" type="number" step="0.001" @bind="productForm.StockQuantity" /></label>
+            <label class="check-label"><input type="checkbox" @bind="productForm.IsActive" /> Aktif</label>
+        </div>
+        <div class="form-actions"><button class="button primary" @onclick="SaveProductAsync">@(editingProductId.HasValue ? "Ürünü Güncelle" : "Ürün Ekle")</button></div>
+
+        <div class="form-row">
+            <input class="input" placeholder="Ürün ara" @bind="search" />
+            <button class="button ghost" @onclick="LoadProductsAsync">Ara</button>
+        </div>
+        <div class="table-wrap">
+            <table><thead><tr><th>Kod</th><th>Ürün</th><th>Fiyat</th><th>Stok</th><th></th></tr></thead><tbody>
+            @foreach (var product in products)
+            {
+                <tr><td>@product.Code</td><td>@product.Name</td><td>@product.ListPrice.ToString("N2") ₺</td><td>@product.StockQuantity</td><td><button class="button ghost" @onclick="() => EditProduct(product)">Düzenle</button></td></tr>
+            }
+            </tbody></table>
+        </div>
+    </section>
+</div>
+
+@code {
+    private IReadOnlyList<AdminCatalogCategoryModel> categories = [];
+    private IReadOnlyList<AdminCatalogProductModel> products = [];
+    private readonly AdminCatalogCategoryEditModel categoryForm = new();
+    private readonly AdminCatalogProductEditModel productForm = new();
+    private Guid? editingCategoryId;
+    private Guid? editingProductId;
+    private string? search;
+    private string? message;
+    private bool success;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        categories = await Catalog.GetCategoriesAsync();
+        products = await Catalog.GetProductsAsync();
+    }
+
+    private Task LoadProductsAsync() => LoadProductsInternalAsync();
+    private async Task LoadProductsInternalAsync() => products = await Catalog.GetProductsAsync(search);
+
+    private async Task SaveCategoryAsync()
+    {
+        var result = editingCategoryId.HasValue
+            ? await Catalog.UpdateCategoryAsync(editingCategoryId.Value, categoryForm)
+            : await Catalog.CreateCategoryAsync(categoryForm);
+        SetResult(result);
+        if (result.Success)
+        {
+            editingCategoryId = null;
+            categoryForm.Name = string.Empty;
+            categoryForm.Description = null;
+            categoryForm.IsActive = true;
+            categories = await Catalog.GetCategoriesAsync();
+        }
+    }
+
+    private async Task SaveProductAsync()
+    {
+        var result = editingProductId.HasValue
+            ? await Catalog.UpdateProductAsync(editingProductId.Value, productForm)
+            : await Catalog.CreateProductAsync(productForm);
+        SetResult(result);
+        if (result.Success)
+        {
+            editingProductId = null;
+            ResetProductForm();
+            products = await Catalog.GetProductsAsync(search);
+        }
+    }
+
+    private void EditCategory(AdminCatalogCategoryModel category)
+    {
+        editingCategoryId = category.Id;
+        categoryForm.Name = category.Name;
+        categoryForm.Description = category.Description;
+        categoryForm.IsActive = category.IsActive;
+    }
+
+    private void EditProduct(AdminCatalogProductModel product)
+    {
+        editingProductId = product.Id;
+        productForm.CategoryId = product.CategoryId;
+        productForm.Code = product.Code;
+        productForm.Name = product.Name;
+        productForm.Brand = product.Brand;
+        productForm.Unit = product.Unit;
+        productForm.ListPrice = product.ListPrice;
+        productForm.VatRate = product.VatRate;
+        productForm.StockQuantity = product.StockQuantity;
+        productForm.IsActive = product.IsActive;
+    }
+
+    private void ResetProductForm()
+    {
+        productForm.CategoryId = Guid.Empty;
+        productForm.Code = string.Empty;
+        productForm.Name = string.Empty;
+        productForm.Brand = null;
+        productForm.Unit = "Adet";
+        productForm.ListPrice = 0;
+        productForm.VatRate = 20;
+        productForm.StockQuantity = 0;
+        productForm.IsActive = true;
+    }
+
+    private void SetResult(ApiResult result)
+    {
+        success = result.Success;
+        message = result.Message;
+    }
+}
