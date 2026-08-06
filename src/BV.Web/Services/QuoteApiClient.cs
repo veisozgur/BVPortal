@@ -47,6 +47,19 @@ public sealed class QuoteApiClient(IHttpClientFactory httpClientFactory, AuthSes
             : null;
     }
 
+    public Task<ApiResult> AcceptAsync(Guid id, CancellationToken cancellationToken = default)
+        => PostDecisionAsync($"api/v1/quote-requests/{id}/accept", null, "Teklif kabul edildi.", cancellationToken);
+
+    public Task<ApiResult> RejectAsync(Guid id, CancellationToken cancellationToken = default)
+        => PostDecisionAsync($"api/v1/quote-requests/{id}/reject", null, "Teklif reddedildi.", cancellationToken);
+
+    public Task<ApiResult> RequestRevisionAsync(Guid id, string message, CancellationToken cancellationToken = default)
+        => PostDecisionAsync(
+            $"api/v1/quote-requests/{id}/revision-request",
+            new { message },
+            "Revizyon talebiniz kaydedildi.",
+            cancellationToken);
+
     public async Task<PdfDownloadResult> DownloadPdfAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var response = await CreateClient().GetAsync($"api/v1/quote-requests/{id}/pdf", cancellationToken);
@@ -59,6 +72,32 @@ public sealed class QuoteApiClient(IHttpClientFactory httpClientFactory, AuthSes
             ?? $"BV-Teklif-{id:N}.pdf";
 
         return new PdfDownloadResult(true, bytes, fileName, null);
+    }
+
+    private async Task<ApiResult> PostDecisionAsync(
+        string path,
+        object? payload,
+        string successMessage,
+        CancellationToken cancellationToken)
+    {
+        var response = payload is null
+            ? await CreateClient().PostAsync(path, null, cancellationToken)
+            : await CreateClient().PostAsJsonAsync(path, payload, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+            return ApiResult.Ok(successMessage);
+
+        ApiMessage? body = null;
+        try
+        {
+            body = await response.Content.ReadFromJsonAsync<ApiMessage>(cancellationToken: cancellationToken);
+        }
+        catch
+        {
+            // Generic fallback below.
+        }
+
+        return ApiResult.Fail(body?.Message ?? $"İşlem tamamlanamadı ({(int)response.StatusCode}).");
     }
 }
 
