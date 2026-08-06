@@ -1,0 +1,95 @@
+@page "/admin/quotes/{Id:guid}"
+@rendermode InteractiveServer
+@using BV.Web.Services
+@inject AdminApiClient Admin
+
+<PageTitle>Teklif Detayı - Yönetim</PageTitle>
+
+@if (loading)
+{
+    <div class="panel">Teklif detayı yükleniyor...</div>
+}
+else if (detail is null)
+{
+    <div class="panel"><h2>Teklif bulunamadı</h2><p>Teklif mevcut değil veya yönetici yetkiniz bulunmuyor.</p></div>
+}
+else
+{
+    <section class="page-heading">
+        <div><span class="eyebrow">Yönetim / Teklif</span><h1>@detail.Title</h1><p>@detail.CustomerName · @detail.CustomerPhone · @detail.CustomerEmail</p></div>
+        <a class="button ghost" href="/admin/quotes">Listeye Dön</a>
+    </section>
+
+    <section class="dashboard-grid">
+        <article class="panel">
+            <div class="panel-heading"><div><h2>Talep kalemleri</h2><p>@detail.Description</p></div></div>
+            <div class="table-wrap"><table><thead><tr><th>Ürün</th><th>Miktar</th><th>Birim</th><th>Not</th></tr></thead><tbody>
+            @foreach (var item in detail.Items)
+            {
+                <tr><td><strong>@item.ProductName</strong></td><td>@item.Quantity</td><td>@item.Unit</td><td>@item.Notes</td></tr>
+            }
+            </tbody></table></div>
+        </article>
+
+        <article class="panel">
+            <div class="panel-heading"><div><h2>Operasyon</h2><p>Teklif durumunu yönetin.</p></div></div>
+            <label>Durum</label>
+            <select class="form-control" @bind="selectedStatus">
+                <option value="1">Gönderildi</option>
+                <option value="2">İnceleniyor</option>
+                <option value="4">İptal</option>
+            </select>
+            <button class="button primary" @onclick="SaveStatusAsync" disabled="@saving">@(saving ? "Kaydediliyor..." : "Durumu Güncelle")</button>
+            @if (!string.IsNullOrWhiteSpace(message))
+            {
+                <div class="status-message @(success ? "success" : "error")">@message</div>
+            }
+        </article>
+    </section>
+
+    @if (detail.Response is not null)
+    {
+        <article class="panel">
+            <div class="panel-heading"><div><h2>Gönderilen fiyat teklifi</h2><p>@detail.Response.Message</p></div><strong>@detail.Response.TotalAmount.ToString("N2") ₺</strong></div>
+            <div class="table-wrap"><table><thead><tr><th>Ürün</th><th>Miktar</th><th>Birim Fiyat</th><th>KDV</th><th>Toplam</th></tr></thead><tbody>
+            @foreach (var item in detail.Response.Items)
+            {
+                <tr><td>@item.ProductName</td><td>@item.Quantity @item.Unit</td><td>@item.UnitPrice.ToString("N2") ₺</td><td>%@item.VatRate</td><td>@item.LineTotal.ToString("N2") ₺</td></tr>
+            }
+            </tbody></table></div>
+        </article>
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private AdminQuoteDetailModel? detail;
+    private bool loading = true;
+    private bool saving;
+    private bool success;
+    private string? message;
+    private int selectedStatus = 2;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true;
+        try
+        {
+            detail = await Admin.GetQuoteDetailAsync(Id);
+            if (detail is not null)
+                selectedStatus = detail.Status;
+        }
+        finally { loading = false; }
+    }
+
+    private async Task SaveStatusAsync()
+    {
+        saving = true;
+        var result = await Admin.ChangeQuoteStatusAsync(Id, selectedStatus);
+        saving = false;
+        success = result.Success;
+        message = result.Message;
+        if (result.Success && detail is not null)
+            detail = detail with { Status = selectedStatus };
+    }
+}
