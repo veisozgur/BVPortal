@@ -1,15 +1,71 @@
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: bvportal-sqlserver
+    container_name: bvportal-sql
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "ChangeThis_StrongPassword123!"
+      MSSQL_PID: "Express"
+      MSSQL_SA_PASSWORD: "${BV_SQL_PASSWORD}"
     ports:
       - "1433:1433"
     volumes:
-      - bvportal-sql-data:/var/opt/mssql
+      - bvportal_sql_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"${BV_SQL_PASSWORD}\" -C -Q \"SELECT 1\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: src/BV.Api/Dockerfile
+    container_name: bvportal-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=BVPortal;User Id=sa;Password=${BV_SQL_PASSWORD};TrustServerCertificate=True"
+      Jwt__Issuer: "BVPortal"
+      Jwt__Audience: "BVPortal.Client"
+      Jwt__Key: "${BV_JWT_KEY}"
+      Admin__PhoneNumbers__0: "${BV_ADMIN_PHONE}"
+      NetGsm__Enabled: "${NETGSM_ENABLED:-false}"
+      NetGsm__UserCode: "${NETGSM_USER_CODE:-}"
+      NetGsm__Password: "${NETGSM_PASSWORD:-}"
+      NetGsm__Header: "${NETGSM_HEADER:-}"
+      Smtp__Enabled: "${SMTP_ENABLED:-false}"
+      Smtp__Host: "${SMTP_HOST:-}"
+      Smtp__Port: "${SMTP_PORT:-587}"
+      Smtp__EnableSsl: "${SMTP_ENABLE_SSL:-true}"
+      Smtp__Username: "${SMTP_USERNAME:-}"
+      Smtp__Password: "${SMTP_PASSWORD:-}"
+      Smtp__FromAddress: "${SMTP_FROM_ADDRESS:-}"
+      Smtp__FromName: "${SMTP_FROM_NAME:-BV Kırtasiye}"
+      Mikro__Enabled: "${MIKRO_ENABLED:-false}"
+      Mikro__BaseUrl: "${MIKRO_BASE_URL:-}"
+      Mikro__ApiKey: "${MIKRO_API_KEY:-}"
+      Mikro__CompanyCode: "${MIKRO_COMPANY_CODE:-}"
+    ports:
+      - "7001:8080"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: src/BV.Web/Dockerfile
+    container_name: bvportal-web
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ApiBaseUrl: "http://api:8080/"
+    ports:
+      - "7000:8080"
+    depends_on:
+      - api
     restart: unless-stopped
 
 volumes:
-  bvportal-sql-data:
+  bvportal_sql_data:
