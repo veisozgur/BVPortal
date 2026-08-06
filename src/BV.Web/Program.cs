@@ -21,6 +21,7 @@ builder.Services.AddScoped<ProfileApiClient>();
 builder.Services.AddScoped<AdminApiClient>();
 builder.Services.AddScoped<AdminCatalogApiClient>();
 builder.Services.AddScoped<AdminNotificationApiClient>();
+builder.Services.AddScoped<AdminReportsApiClient>();
 builder.Services.AddScoped<IntegrationStatusApiClient>();
 builder.Services.AddScoped<ExcelQuoteImporter>();
 builder.Services.AddScoped<CatalogApiClient>();
