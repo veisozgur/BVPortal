@@ -1,0 +1,77 @@
+@page "/siparislerim"
+@rendermode InteractiveServer
+@using BV.Web.Services
+@inject OrderApiClient Orders
+
+<PageTitle>Siparişlerim | BV Portal</PageTitle>
+
+<div class="page-heading">
+    <div>
+        <span class="eyebrow">Müşteri Portalı</span>
+        <h1>Siparişlerim</h1>
+        <p>Kabul edilen tekliflerinizden oluşan siparişleri ve güncel durumlarını takip edin.</p>
+    </div>
+    <button class="button ghost" @onclick="LoadAsync" disabled="@loading">Yenile</button>
+</div>
+
+@if (loading)
+{
+    <section class="panel">Siparişler yükleniyor...</section>
+}
+else if (items.Count == 0)
+{
+    <section class="panel empty-state">
+        <h2>Henüz siparişiniz yok</h2>
+        <p>Kabul edilen teklifiniz siparişe dönüştürüldüğünde burada görüntülenecektir.</p>
+        <a class="button" href="/tekliflerim">Tekliflerime Git</a>
+    </section>
+}
+else
+{
+    <section class="panel">
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Sipariş No</th><th>Durum</th><th>Kalem</th><th>Toplam</th><th>Tarih</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var item in items)
+                    {
+                        <tr>
+                            <td><strong>@item.OrderNumber</strong></td>
+                            <td>@StatusName(item.Status)</td>
+                            <td>@item.ItemCount</td>
+                            <td>@item.TotalAmount.ToString("N2") ₺</td>
+                            <td>@item.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                            <td><a class="button ghost" href="@($"/siparislerim/{item.Id}")">Detay</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
+
+@code {
+    private IReadOnlyList<CustomerOrderListItemModel> items = [];
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        items = await Orders.ListAsync();
+        loading = false;
+    }
+
+    internal static string StatusName(int status) => status switch
+    {
+        1 => "Oluşturuldu",
+        2 => "Hazırlanıyor",
+        3 => "Tedarik bekliyor",
+        4 => "Sevke hazır",
+        5 => "Sevk edildi",
+        6 => "Tamamlandı",
+        7 => "İptal",
+        _ => "Bilinmiyor"
+    };
+}
