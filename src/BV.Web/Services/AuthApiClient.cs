@@ -2,7 +2,10 @@ using System.Net.Http.Json;
 
 namespace BV.Web.Services;
 
-public sealed class AuthApiClient(IHttpClientFactory httpClientFactory, AuthSession session)
+public sealed class AuthApiClient(
+    IHttpClientFactory httpClientFactory,
+    AuthSession session,
+    AuthSessionStore sessionStore)
 {
     private HttpClient Client => httpClientFactory.CreateClient("BV.Api");
 
@@ -33,6 +36,18 @@ public sealed class AuthApiClient(IHttpClientFactory httpClientFactory, AuthSess
         return await ApplyTokenResponseAsync(response, "Giriş başarılı.", cancellationToken);
     }
 
+    public async Task<bool> RestoreAsync(CancellationToken cancellationToken = default)
+    {
+        var restored = await sessionStore.RestoreAsync(session);
+        if (!restored)
+            return false;
+
+        if (session.IsAuthenticated)
+            return true;
+
+        return await RefreshAsync(cancellationToken);
+    }
+
     public async Task<bool> RefreshAsync(CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(session.RefreshToken))
@@ -46,6 +61,7 @@ public sealed class AuthApiClient(IHttpClientFactory httpClientFactory, AuthSess
         if (!response.IsSuccessStatusCode)
         {
             session.Clear();
+            await sessionStore.ClearAsync();
             return false;
         }
 
@@ -69,6 +85,7 @@ public sealed class AuthApiClient(IHttpClientFactory httpClientFactory, AuthSess
         finally
         {
             session.Clear();
+            await sessionStore.ClearAsync();
         }
     }
 
@@ -82,6 +99,7 @@ public sealed class AuthApiClient(IHttpClientFactory httpClientFactory, AuthSess
             return ApiResult.Fail("Sunucudan geçerli oturum bilgisi alınamadı.");
 
         session.SetTokens(token.AccessToken, token.RefreshToken, token.ExpiresIn, token.Role);
+        await sessionStore.SaveAsync(session);
         return ApiResult.Ok(successMessage);
     }
 
@@ -121,6 +139,22 @@ public sealed class AuthSession
         ExpiresAt = DateTimeOffset.UtcNow.AddSeconds(expiresIn);
     }
 
+    public AuthSessionSnapshot? Export()
+    {
+        if (string.IsNullOrWhiteSpace(AccessToken) || string.IsNullOrWhiteSpace(RefreshToken) || ExpiresAt is null)
+            return null;
+
+        return new AuthSessionSnapshot(AccessToken, RefreshToken, Role, ExpiresAt.Value);
+    }
+
+    public void Restore(AuthSessionSnapshot snapshot)
+    {
+        AccessToken = snapshot.AccessToken;
+        RefreshToken = snapshot.RefreshToken;
+        Role = string.IsNullOrWhiteSpace(snapshot.Role) ? "Customer" : snapshot.Role;
+        ExpiresAt = snapshot.ExpiresAt;
+    }
+
     public void Clear()
     {
         AccessToken = null;
@@ -129,6 +163,12 @@ public sealed class AuthSession
         ExpiresAt = null;
     }
 }
+
+public sealed record AuthSessionSnapshot(
+    string AccessToken,
+    string RefreshToken,
+    string Role,
+    DateTimeOffset ExpiresAt);
 
 public sealed record RegisterModel(string FirstName, string LastName, string Phone, string Email, string Password);
 public sealed record LoginModel(string Phone, string Password);
