@@ -6,6 +6,7 @@
 @inject QuoteApiClient QuoteApi
 @inject ExcelQuoteImporter ExcelImporter
 @inject CatalogSelection CatalogSelection
+@inject SchoolSupplySetCatalogApiClient SchoolSets
 @inject AuthSession Session
 @inject NavigationManager Navigation
 
@@ -45,6 +46,54 @@ else
                         <span>Ofis sarf, teknoloji ve iş yeri ihtiyaçları</span>
                     </button>
                 </div>
+
+                @if (form.Type == 1)
+                {
+                    <section class="panel">
+                        <div class="panel-heading compact">
+                            <div>
+                                <h2>Okul setinden aktar</h2>
+                                <p>Okul ve sınıf seçerek tanımlı kırtasiye setini teklif kalemlerine ekleyin.</p>
+                            </div>
+                        </div>
+                        <div class="form-grid">
+                            <label>Okul
+                                <select class="input" value="@selectedSchoolId" @onchange="SchoolChangedAsync">
+                                    <option value="">Okul seçin</option>
+                                    @foreach (var school in schools)
+                                    {
+                                        <option value="@school.Id">@school.Name</option>
+                                    }
+                                </select>
+                            </label>
+                            <label>Sınıf / Kademe
+                                <select class="input" value="@selectedGradeId" @onchange="GradeChangedAsync" disabled="@(selectedSchoolId == Guid.Empty)">
+                                    <option value="">Sınıf seçin</option>
+                                    @foreach (var grade in grades)
+                                    {
+                                        <option value="@grade.Id">@grade.Name</option>
+                                    }
+                                </select>
+                            </label>
+                            <label>Okul Seti
+                                <select class="input" @bind="selectedSetId" disabled="@(selectedGradeId == Guid.Empty)">
+                                    <option value="">Set seçin</option>
+                                    @foreach (var set in availableSets)
+                                    {
+                                        <option value="@set.Id">@set.Name (@set.AcademicYear-@(set.AcademicYear + 1)) · @set.ItemCount ürün</option>
+                                    }
+                                </select>
+                            </label>
+                        </div>
+                        <button type="button" class="button" @onclick="ImportSchoolSetAsync" disabled="@(selectedSetId == Guid.Empty || importingSet)">
+                            @(importingSet ? "Set aktarılıyor..." : "Seti Teklife Aktar")
+                        </button>
+                        @if (!string.IsNullOrWhiteSpace(schoolSetMessage))
+                        {
+                            <div class="form-message @(schoolSetSuccess ? "success-message" : "error-message")">@schoolSetMessage</div>
+                        }
+                    </section>
+                }
 
                 <div class="form-grid single">
                     <label>Teklif başlığı
@@ -116,7 +165,7 @@ else
 
                 <div class="form-actions">
                     <label class="check-label"><InputCheckbox @bind-Value="form.Submit" /> Hemen gönder</label>
-                    <button class="button primary" type="submit" disabled="@(saving || importing)">@(saving ? "Kaydediliyor..." : form.Submit ? "Teklifi Gönder" : "Taslak Kaydet")</button>
+                    <button class="button primary" type="submit" disabled="@(saving || importing || importingSet)">@(saving ? "Kaydediliyor..." : form.Submit ? "Teklifi Gönder" : "Taslak Kaydet")</button>
                 </div>
             </EditForm>
         </section>
@@ -139,16 +188,27 @@ else
 
 @code {
     private readonly QuoteFormModel form = new();
+    private IReadOnlyList<SchoolOptionModel> schools = [];
+    private IReadOnlyList<SchoolGradeOptionModel> grades = [];
+    private IReadOnlyList<SchoolSupplySetOptionModel> availableSets = [];
+    private Guid selectedSchoolId;
+    private Guid selectedGradeId;
+    private Guid selectedSetId;
     private bool saving;
     private bool importing;
+    private bool importingSet;
     private bool success;
     private bool importSuccess;
+    private bool schoolSetSuccess;
     private string? message;
     private string? importMessage;
     private string? catalogMessage;
+    private string? schoolSetMessage;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
+        schools = await SchoolSets.SchoolsAsync();
+
         if (CatalogSelection.Count == 0)
         {
             AddItem();
@@ -168,6 +228,57 @@ else
 
         catalogMessage = $"Katalogdan {CatalogSelection.Count} ürün teklif formuna aktarıldı.";
         CatalogSelection.Clear();
+    }
+
+    private async Task SchoolChangedAsync(ChangeEventArgs eventArgs)
+    {
+        selectedSchoolId = Guid.TryParse(eventArgs.Value?.ToString(), out var id) ? id : Guid.Empty;
+        selectedGradeId = Guid.Empty;
+        selectedSetId = Guid.Empty;
+        availableSets = [];
+        grades = selectedSchoolId == Guid.Empty ? [] : await SchoolSets.GradesAsync(selectedSchoolId);
+    }
+
+    private async Task GradeChangedAsync(ChangeEventArgs eventArgs)
+    {
+        selectedGradeId = Guid.TryParse(eventArgs.Value?.ToString(), out var id) ? id : Guid.Empty;
+        selectedSetId = Guid.Empty;
+        availableSets = selectedGradeId == Guid.Empty ? [] : await SchoolSets.SetsAsync(selectedSchoolId, selectedGradeId);
+    }
+
+    private async Task ImportSchoolSetAsync()
+    {
+        importingSet = true;
+        schoolSetMessage = null;
+        schoolSetSuccess = false;
+
+        var set = await SchoolSets.GetAsync(selectedSetId);
+        importingSet = false;
+        if (set is null)
+        {
+            schoolSetMessage = "Okul seti yüklenemedi.";
+            return;
+        }
+
+        if (form.Items.Count == 1 && string.IsNullOrWhiteSpace(form.Items[0].ProductName))
+            form.Items.Clear();
+
+        foreach (var item in set.Items)
+        {
+            form.Items.Add(new CreateQuoteItemModel
+            {
+                ProductName = item.ProductName,
+                Quantity = item.Quantity,
+                Unit = item.Unit,
+                Description = item.Description
+            });
+        }
+
+        var schoolName = schools.FirstOrDefault(x => x.Id == selectedSchoolId)?.Name;
+        var gradeName = grades.FirstOrDefault(x => x.Id == selectedGradeId)?.Name;
+        form.Title = $"{set.AcademicYear}-{set.AcademicYear + 1} {schoolName} {gradeName} kırtasiye seti";
+        schoolSetSuccess = true;
+        schoolSetMessage = $"{set.Items.Count} ürün okul setinden teklif formuna aktarıldı.";
     }
 
     private void AddItem() => form.Items.Add(new CreateQuoteItemModel());
@@ -232,6 +343,8 @@ else
             form.Items.Clear();
             importMessage = null;
             catalogMessage = null;
+            schoolSetMessage = null;
+            selectedSetId = Guid.Empty;
             AddItem();
         }
     }
