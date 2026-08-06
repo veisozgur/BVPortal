@@ -9,7 +9,7 @@ public sealed class QuoteRequest
     public QuoteRequest(Guid customerId, QuoteRequestType type, string title, string? description)
     {
         if (customerId == Guid.Empty)
-            throw new ArgumentException("Customer id is required.", nameof(customerId));
+            throw new ArgumentException("Quote customer id is required.", nameof(customerId));
         if (string.IsNullOrWhiteSpace(title))
             throw new ArgumentException("Title is required.", nameof(title));
 
@@ -71,6 +71,20 @@ public sealed class QuoteRequest
 
         Status = QuoteRequestStatus.Answered;
         AnsweredAtUtc = DateTime.UtcNow;
+    }
+
+    public void Accept()
+    {
+        if (Status != QuoteRequestStatus.Answered)
+            throw new InvalidOperationException("Only answered quote requests can be accepted.");
+        Status = QuoteRequestStatus.Accepted;
+    }
+
+    public void Reject()
+    {
+        if (Status != QuoteRequestStatus.Answered)
+            throw new InvalidOperationException("Only answered quote requests can be rejected.");
+        Status = QuoteRequestStatus.Rejected;
     }
 
     public void Cancel()
