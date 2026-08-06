@@ -1,0 +1,151 @@
+@page "/admin/notifications"
+@rendermode InteractiveServer
+@using BV.Web.Services
+@inject AdminNotificationApiClient Notifications
+
+<PageTitle>Bildirim Merkezi | BV Portal</PageTitle>
+
+<div class="page-heading">
+    <div>
+        <span class="eyebrow">Yönetim Paneli</span>
+        <h1>Bildirim Merkezi</h1>
+        <p>Teklif SMS ve e-posta bildirimlerini izleyin, başarısız gönderimleri yeniden deneyin.</p>
+    </div>
+    <button class="button ghost" @onclick="LoadAsync" disabled="@loading">Yenile</button>
+</div>
+
+<div class="panel form-row">
+    <label>Kanal
+        <select class="input" @bind="channel" @bind:after="LoadAsync">
+            <option value="">Tümü</option>
+            <option value="Sms">SMS</option>
+            <option value="Email">E-posta</option>
+        </select>
+    </label>
+    <label>Durum
+        <select class="input" @bind="statusFilter" @bind:after="LoadAsync">
+            <option value="">Tümü</option>
+            <option value="Sent">Gönderildi</option>
+            <option value="Failed">Başarısız</option>
+            <option value="Pending">Bekliyor</option>
+        </select>
+    </label>
+</div>
+
+@if (loading)
+{
+    <section class="panel">Bildirim kayıtları yükleniyor...</section>
+}
+else if (page is null)
+{
+    <section class="panel empty-state">
+        <h2>Kayıtlar alınamadı</h2>
+        <p>Yönetici oturumunu ve API bağlantısını kontrol edin.</p>
+    </section>
+}
+else
+{
+    <div class="metric-grid">
+        <article class="metric-card"><span>Toplam</span><strong>@page.TotalCount</strong></article>
+        <article class="metric-card"><span>Gönderildi</span><strong>@page.SentCount</strong></article>
+        <article class="metric-card"><span>Başarısız</span><strong>@page.FailedCount</strong></article>
+        <article class="metric-card"><span>Bekliyor</span><strong>@page.PendingCount</strong></article>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <div class="form-message @(success ? "success-message" : "error-message")">@message</div>
+    }
+
+    <section class="panel">
+        @if (page.Items.Count == 0)
+        {
+            <div class="empty-state">
+                <h2>Bildirim bulunamadı</h2>
+                <p>Seçilen filtrelere uygun bildirim kaydı yok.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Teklif</th>
+                            <th>Kanal</th>
+                            <th>Hedef</th>
+                            <th>Durum</th>
+                            <th>Tarih</th>
+                            <th>İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in page.Items)
+                        {
+                            <tr>
+                                <td><a href="@($"/admin/quotes/{item.QuoteRequestId}")">@item.Title</a></td>
+                                <td>@ChannelName(item.Channel)</td>
+                                <td>@item.Destination</td>
+                                <td>
+                                    <strong>@StatusName(item.Status)</strong>
+                                    @if (!string.IsNullOrWhiteSpace(item.ErrorMessage))
+                                    {
+                                        <small class="error-message">@item.ErrorMessage</small>
+                                    }
+                                </td>
+                                <td>@item.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                <td>
+                                    @if (item.Status == "Failed")
+                                    {
+                                        <button class="button ghost" @onclick="() => RetryAsync(item.Id)" disabled="@(retryingId == item.Id)">
+                                            @(retryingId == item.Id ? "Gönderiliyor..." : "Yeniden Gönder")
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+}
+
+@code {
+    private NotificationPageModel? page;
+    private string channel = string.Empty;
+    private string statusFilter = string.Empty;
+    private bool loading = true;
+    private bool success;
+    private string? message;
+    private Guid? retryingId;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        page = await Notifications.ListAsync(channel, statusFilter);
+        loading = false;
+    }
+
+    private async Task RetryAsync(Guid id)
+    {
+        retryingId = id;
+        message = null;
+        var result = await Notifications.RetryAsync(id);
+        success = result.Success;
+        message = result.Message;
+        retryingId = null;
+        await LoadAsync();
+    }
+
+    private static string ChannelName(string value) => value == "Sms" ? "SMS" : value == "Email" ? "E-posta" : value;
+    private static string StatusName(string value) => value switch
+    {
+        "Sent" => "Gönderildi",
+        "Failed" => "Başarısız",
+        "Pending" => "Bekliyor",
+        _ => value
+    };
+}
