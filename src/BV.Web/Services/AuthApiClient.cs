@@ -30,12 +30,59 @@ public sealed class AuthApiClient(IHttpClientFactory httpClientFactory, AuthSess
         if (!response.IsSuccessStatusCode)
             return await ToResultAsync(response, cancellationToken);
 
+        return await ApplyTokenResponseAsync(response, "Giriş başarılı.", cancellationToken);
+    }
+
+    public async Task<bool> RefreshAsync(CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(session.RefreshToken))
+            return false;
+
+        var response = await Client.PostAsJsonAsync(
+            "api/v1/auth/refresh",
+            new { refreshToken = session.RefreshToken },
+            cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            session.Clear();
+            return false;
+        }
+
+        var result = await ApplyTokenResponseAsync(response, "Oturum yenilendi.", cancellationToken);
+        return result.Success;
+    }
+
+    public async Task LogoutAsync(CancellationToken cancellationToken = default)
+    {
+        var refreshToken = session.RefreshToken;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(refreshToken))
+            {
+                await Client.PostAsJsonAsync(
+                    "api/v1/auth/logout",
+                    new { refreshToken },
+                    cancellationToken);
+            }
+        }
+        finally
+        {
+            session.Clear();
+        }
+    }
+
+    private async Task<ApiResult> ApplyTokenResponseAsync(
+        HttpResponseMessage response,
+        string successMessage,
+        CancellationToken cancellationToken)
+    {
         var token = await response.Content.ReadFromJsonAsync<TokenResponse>(cancellationToken: cancellationToken);
         if (token is null)
             return ApiResult.Fail("Sunucudan geçerli oturum bilgisi alınamadı.");
 
         session.SetTokens(token.AccessToken, token.RefreshToken, token.ExpiresIn, token.Role);
-        return ApiResult.Ok("Giriş başarılı.");
+        return ApiResult.Ok(successMessage);
     }
 
     private static async Task<ApiResult> ToResultAsync(HttpResponseMessage response, CancellationToken cancellationToken)
@@ -63,6 +110,7 @@ public sealed class AuthSession
     public string Role { get; private set; } = "Customer";
     public DateTimeOffset? ExpiresAt { get; private set; }
     public bool IsAuthenticated => !string.IsNullOrWhiteSpace(AccessToken) && ExpiresAt > DateTimeOffset.UtcNow;
+    public bool CanRefresh => !string.IsNullOrWhiteSpace(RefreshToken);
     public bool IsAdmin => string.Equals(Role, "Admin", StringComparison.OrdinalIgnoreCase);
 
     public void SetTokens(string accessToken, string refreshToken, int expiresIn, string? role)
