@@ -1,0 +1,90 @@
+@page "/katalog"
+@rendermode InteractiveServer
+@using BV.Web.Services
+@inject CatalogApiClient CatalogApi
+@inject CatalogSelection Selection
+
+<PageTitle>Ürün Kataloğu | BV Portal</PageTitle>
+
+<div class="page-heading">
+    <div>
+        <span class="eyebrow">Müşteri Portalı</span>
+        <h1>Ürün kataloğu</h1>
+        <p>Ürünleri arayın, kategoriye göre filtreleyin ve teklif listenize ekleyin.</p>
+    </div>
+    <a class="button primary" href="/yeni-teklif">Seçilenler (@Selection.Count)</a>
+</div>
+
+<section class="panel">
+    <div class="form-row">
+        <input class="input" @bind="search" @bind:event="oninput" placeholder="Ürün, marka veya kod ara" />
+        <select class="input" @bind="selectedCategoryId">
+            <option value="">Tüm kategoriler</option>
+            @foreach (var category in categories)
+            {
+                <option value="@category.Id">@category.Name</option>
+            }
+        </select>
+        <button class="button primary" @onclick="LoadProductsAsync">Ara</button>
+    </div>
+</section>
+
+@if (loading)
+{
+    <section class="panel">Katalog yükleniyor...</section>
+}
+else if (products.Items.Count == 0)
+{
+    <section class="panel empty-state"><h2>Ürün bulunamadı</h2><p>Arama veya kategori filtresini değiştirin.</p></section>
+}
+else
+{
+    <div class="catalog-grid">
+        @foreach (var product in products.Items)
+        {
+            <article class="panel catalog-card">
+                <span class="eyebrow">@product.Code</span>
+                <h2>@product.Name</h2>
+                <p>@(string.IsNullOrWhiteSpace(product.Brand) ? "Marka belirtilmemiş" : product.Brand)</p>
+                <div class="summary-line"><span>Birim</span><strong>@product.Unit</strong></div>
+                <div class="summary-line"><span>Liste fiyatı</span><strong>@product.ListPrice.ToString("N2") ₺</strong></div>
+                <div class="summary-line"><span>Stok</span><strong>@(product.InStock ? "Stokta" : "Siparişle")</strong></div>
+                <button class="button primary" @onclick="() => Add(product)">Teklife Ekle</button>
+            </article>
+        }
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <div class="status-message success">@message</div>
+}
+
+@code {
+    private IReadOnlyList<CatalogCategoryModel> categories = [];
+    private CatalogProductPage products = new([], 0, 1, 24);
+    private string? search;
+    private string selectedCategoryId = string.Empty;
+    private bool loading;
+    private string? message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        categories = await CatalogApi.GetCategoriesAsync();
+        await LoadProductsAsync();
+    }
+
+    private async Task LoadProductsAsync()
+    {
+        loading = true;
+        Guid? categoryId = Guid.TryParse(selectedCategoryId, out var id) ? id : null;
+        products = await CatalogApi.GetProductsAsync(search, categoryId);
+        loading = false;
+    }
+
+    private void Add(CatalogProductModel product)
+    {
+        Selection.Add(product);
+        message = $"{product.Name} teklif listenize eklendi.";
+    }
+}
