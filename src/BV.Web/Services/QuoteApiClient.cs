@@ -46,6 +46,20 @@ public sealed class QuoteApiClient(IHttpClientFactory httpClientFactory, AuthSes
             ? await response.Content.ReadFromJsonAsync<QuoteResponseModel>(cancellationToken: cancellationToken)
             : null;
     }
+
+    public async Task<PdfDownloadResult> DownloadPdfAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var response = await CreateClient().GetAsync($"api/v1/quote-requests/{id}/pdf", cancellationToken);
+        if (!response.IsSuccessStatusCode)
+            return new PdfDownloadResult(false, null, null, $"PDF indirilemedi ({(int)response.StatusCode}).");
+
+        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+        var fileName = response.Content.Headers.ContentDisposition?.FileNameStar
+            ?? response.Content.Headers.ContentDisposition?.FileName?.Trim('"')
+            ?? $"BV-Teklif-{id:N}.pdf";
+
+        return new PdfDownloadResult(true, bytes, fileName, null);
+    }
 }
 
 public sealed class CreateQuoteModel { public int Type { get; set; } public string Title { get; set; } = string.Empty; public string? Description { get; set; } public bool Submit { get; set; } = true; public List<CreateQuoteItemModel> Items { get; } = []; }
@@ -55,3 +69,4 @@ public sealed record QuoteDetailModel(Guid Id, int Type, int Status, string Titl
 public sealed record QuoteItemModel(Guid Id, string ProductName, decimal Quantity, string Unit, string? Notes);
 public sealed record QuoteResponseModel(Guid Id, Guid QuoteRequestId, DateTime ValidUntilUtc, string? Notes, DateTime? SentAtUtc, List<QuoteResponseItemModel> Items);
 public sealed record QuoteResponseItemModel(Guid Id, string ProductName, decimal Quantity, string Unit, decimal UnitPrice, decimal VatRate, decimal LineTotal);
+public sealed record PdfDownloadResult(bool Success, byte[]? Content, string? FileName, string? Error);
