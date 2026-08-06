@@ -49,6 +49,7 @@ builder.Services.AddHealthChecks();
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 builder.Services.Configure<NetGsmOptions>(builder.Configuration.GetSection(NetGsmOptions.SectionName));
+builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection(SmtpOptions.SectionName));
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IOtpCodeRepository, OtpCodeRepository>();
@@ -61,7 +62,12 @@ builder.Services.AddScoped<IAdminDashboardQuery, AdminDashboardQuery>();
 builder.Services.AddScoped<IAdminQuoteOperations, AdminQuoteOperations>();
 builder.Services.AddScoped<IAdminNotificationService, AdminNotificationService>();
 builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
-builder.Services.AddScoped<IEmailSender, DevelopmentEmailSender>();
+
+var smtpOptions = builder.Configuration.GetSection(SmtpOptions.SectionName).Get<SmtpOptions>() ?? new();
+if (smtpOptions.Enabled)
+    builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+else
+    builder.Services.AddScoped<IEmailSender, DevelopmentEmailSender>();
 
 var netGsmOptions = builder.Configuration.GetSection(NetGsmOptions.SectionName).Get<NetGsmOptions>() ?? new();
 if (netGsmOptions.Enabled)
