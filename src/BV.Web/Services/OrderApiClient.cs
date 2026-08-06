@@ -47,7 +47,8 @@ public sealed record CustomerOrderDetailModel(
     DateTime? ShippedAtUtc,
     DateTime? CompletedAtUtc,
     decimal TotalAmount,
-    IReadOnlyList<CustomerOrderItemModel> Items);
+    IReadOnlyList<CustomerOrderItemModel> Items,
+    IReadOnlyList<OrderTimelineItemModel> Timeline);
 
 public sealed record CustomerOrderItemModel(
     Guid Id,
@@ -57,3 +58,10 @@ public sealed record CustomerOrderItemModel(
     decimal UnitPrice,
     decimal VatRate,
     decimal LineTotal);
+
+public sealed record OrderTimelineItemModel(
+    Guid Id,
+    int? PreviousStatus,
+    int NewStatus,
+    string? Note,
+    DateTime ChangedAtUtc);
