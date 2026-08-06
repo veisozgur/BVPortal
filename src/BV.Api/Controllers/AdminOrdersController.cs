@@ -12,6 +12,59 @@ namespace BV.Api.Controllers;
 [Route("api/v1/admin/orders")]
 public sealed class AdminOrdersController(BVPortalDbContext dbContext) : ControllerBase
 {
+    [HttpGet]
+    public async Task<IActionResult> List(
+        [FromQuery] OrderStatus? status,
+        [FromQuery] string? search,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 25,
+        CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        var query = dbContext.Orders.AsNoTracking();
+
+        if (status.HasValue)
+            query = query.Where(x => x.Status == status.Value);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            query = query.Where(x => x.OrderNumber.Contains(term));
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(x => new
+            {
+                x.Id,
+                x.OrderNumber,
+                x.QuoteRequestId,
+                x.CustomerId,
+                x.Status,
+                x.CreatedAtUtc,
+                x.UpdatedAtUtc,
+                x.ShippedAtUtc,
+                x.CompletedAtUtc,
+                totalAmount = x.Items.Sum(item => item.Quantity * item.UnitPrice * (1 + item.VatRate / 100m)),
+                itemCount = x.Items.Count
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(new
+        {
+            page,
+            pageSize,
+            totalCount,
+            totalPages = (int)Math.Ceiling(totalCount / (double)pageSize),
+            items
+        });
+    }
+
     [HttpPost("from-quote/{quoteRequestId:guid}")]
     public async Task<IActionResult> CreateFromQuote(
         Guid quoteRequestId,
@@ -102,8 +155,61 @@ public sealed class AdminOrdersController(BVPortalDbContext dbContext) : Control
         });
     }
 
+    [HttpPut("{orderId:guid}/status")]
+    public async Task<IActionResult> ChangeStatus(
+        Guid orderId,
+        [FromBody] ChangeOrderStatusRequest request,
+        CancellationToken cancellationToken)
+    {
+        var order = await dbContext.Orders
+            .SingleOrDefaultAsync(x => x.Id == orderId, cancellationToken);
+
+        if (order is null)
+            return NotFound(new { message = "Sipariş bulunamadı." });
+
+        try
+        {
+            order.ChangeStatus(request.Status);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new { message = exception.Message });
+        }
+
+        return Ok(new
+        {
+            order.Id,
+            order.OrderNumber,
+            order.Status,
+            order.UpdatedAtUtc,
+            order.ShippedAtUtc,
+            order.CompletedAtUtc
+        });
+    }
+
+    [HttpPut("{orderId:guid}/notes")]
+    public async Task<IActionResult> UpdateNotes(
+        Guid orderId,
+        [FromBody] UpdateOrderNotesRequest request,
+        CancellationToken cancellationToken)
+    {
+        var order = await dbContext.Orders
+            .SingleOrDefaultAsync(x => x.Id == orderId, cancellationToken);
+
+        if (order is null)
+            return NotFound(new { message = "Sipariş bulunamadı." });
+
+        order.SetNotes(request.CustomerNote, request.InternalNote);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new { message = "Sipariş notları güncellendi." });
+    }
+
     private static string GenerateOrderNumber()
         => $"BV-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
 }
 
 public sealed record CreateOrderFromQuoteRequest(string? CustomerNote, string? InternalNote);
+public sealed record ChangeOrderStatusRequest(OrderStatus Status);
+public sealed record UpdateOrderNotesRequest(string? CustomerNote, string? InternalNote);
