@@ -1,0 +1,117 @@
+@page "/siparislerim/{OrderId:guid}"
+@rendermode InteractiveServer
+@using BV.Web.Services
+@inject OrderApiClient Orders
+
+<PageTitle>Sipariş Detayı | BV Portal</PageTitle>
+
+@if (loading)
+{
+    <section class="panel">Sipariş detayı yükleniyor...</section>
+}
+else if (model is null)
+{
+    <section class="panel empty-state">
+        <h2>Sipariş bulunamadı</h2>
+        <p>Bu sipariş hesabınıza ait olmayabilir veya kaldırılmış olabilir.</p>
+        <a class="button" href="/siparislerim">Siparişlerime Dön</a>
+    </section>
+}
+else
+{
+    <div class="page-heading">
+        <div>
+            <span class="eyebrow">Sipariş Takibi</span>
+            <h1>@model.OrderNumber</h1>
+            <p>@StatusName(model.Status) · @model.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p>
+        </div>
+        <a class="button ghost" href="/siparislerim">Geri Dön</a>
+    </div>
+
+    <div class="metric-grid">
+        <article class="metric-card"><span>Durum</span><strong>@StatusName(model.Status)</strong></article>
+        <article class="metric-card"><span>Toplam</span><strong>@model.TotalAmount.ToString("N2") ₺</strong></article>
+        <article class="metric-card"><span>Ürün Kalemi</span><strong>@model.Items.Count</strong></article>
+        <article class="metric-card"><span>Son Güncelleme</span><strong>@((model.UpdatedAtUtc ?? model.CreatedAtUtc).ToLocalTime().ToString("dd.MM.yyyy HH:mm"))</strong></article>
+    </div>
+
+    <section class="panel">
+        <h2>Sipariş Süreci</h2>
+        <div class="form-row">
+            @foreach (var step in Steps())
+            {
+                <span class="@(step.Reached ? "success-message" : "eyebrow")">@(step.Reached ? "✓ " : "○ ")@step.Name</span>
+            }
+        </div>
+        @if (model.ShippedAtUtc.HasValue)
+        {
+            <p><strong>Sevk tarihi:</strong> @model.ShippedAtUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p>
+        }
+        @if (model.CompletedAtUtc.HasValue)
+        {
+            <p><strong>Tamamlanma tarihi:</strong> @model.CompletedAtUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p>
+        }
+    </section>
+
+    @if (!string.IsNullOrWhiteSpace(model.CustomerNote))
+    {
+        <section class="panel">
+            <h2>Sipariş Notunuz</h2>
+            <p>@model.CustomerNote</p>
+        </section>
+    }
+
+    <section class="panel">
+        <h2>Ürünler</h2>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Ürün</th><th>Miktar</th><th>Birim Fiyat</th><th>KDV</th><th>Toplam</th></tr></thead>
+                <tbody>
+                    @foreach (var item in model.Items)
+                    {
+                        <tr>
+                            <td>@item.ProductName</td>
+                            <td>@item.Quantity.ToString("N2") @item.Unit</td>
+                            <td>@item.UnitPrice.ToString("N2") ₺</td>
+                            <td>%@item.VatRate.ToString("N0")</td>
+                            <td><strong>@item.LineTotal.ToString("N2") ₺</strong></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter] public Guid OrderId { get; set; }
+    private CustomerOrderDetailModel? model;
+    private bool loading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true;
+        model = await Orders.GetByIdAsync(OrderId);
+        loading = false;
+    }
+
+    private IEnumerable<(string Name, bool Reached)> Steps()
+    {
+        if (model is null) return [];
+        if (model.Status == 7) return [("Sipariş oluşturuldu", true), ("Sipariş iptal edildi", true)];
+        return new[]
+        {
+            ("Oluşturuldu", model.Status >= 1),
+            ("Hazırlanıyor", model.Status >= 2),
+            ("Sevke hazır", model.Status >= 4),
+            ("Sevk edildi", model.Status >= 5),
+            ("Tamamlandı", model.Status >= 6)
+        };
+    }
+
+    private static string StatusName(int status) => status switch
+    {
+        1 => "Oluşturuldu", 2 => "Hazırlanıyor", 3 => "Tedarik bekliyor",
+        4 => "Sevke hazır", 5 => "Sevk edildi", 6 => "Tamamlandı", 7 => "İptal", _ => "Bilinmiyor"
+    };
+}
