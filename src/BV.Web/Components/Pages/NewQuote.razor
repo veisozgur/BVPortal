@@ -1,8 +1,10 @@
 @page "/yeni-teklif"
 @rendermode InteractiveServer
 @using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Forms
 @using BV.Web.Services
 @inject QuoteApiClient QuoteApi
+@inject ExcelQuoteImporter ExcelImporter
 @inject AuthSession Session
 @inject NavigationManager Navigation
 
@@ -12,7 +14,7 @@
     <div>
         <span class="eyebrow">Müşteri Portalı</span>
         <h1>Yeni teklif talebi</h1>
-        <p>Okul veya ofis ihtiyaçlarınızı kalem kalem ekleyip tek seferde gönderin.</p>
+        <p>Okul veya ofis ihtiyaçlarınızı kalem kalem ekleyin ya da Excel dosyasından aktarın.</p>
     </div>
 </div>
 
@@ -50,6 +52,21 @@ else
                     <label>Açıklama
                         <InputTextArea class="input" @bind-Value="form.Description" placeholder="Teslimat, marka veya ürün özellikleri gibi ek bilgiler" />
                     </label>
+                </div>
+
+                <div class="panel excel-import-panel">
+                    <div class="panel-heading compact">
+                        <div>
+                            <h2>Excel'den ürün aktar</h2>
+                            <p>Başlık satırında Ürün ve Miktar zorunludur. Birim ve Açıklama isteğe bağlıdır.</p>
+                        </div>
+                    </div>
+                    <InputFile OnChange="ImportExcelAsync" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" disabled="@importing" />
+                    <small>Maksimum dosya boyutu: 5 MB. İlk çalışma sayfası okunur.</small>
+                    @if (!string.IsNullOrWhiteSpace(importMessage))
+                    {
+                        <div class="form-message @(importSuccess ? "success-message" : "error-message")">@importMessage</div>
+                    }
                 </div>
 
                 <div class="panel-heading compact">
@@ -90,7 +107,7 @@ else
 
                 <div class="form-actions">
                     <label class="check-label"><InputCheckbox @bind-Value="form.Submit" /> Hemen gönder</label>
-                    <button class="button primary" type="submit" disabled="@saving">@(saving ? "Kaydediliyor..." : form.Submit ? "Teklifi Gönder" : "Taslak Kaydet")</button>
+                    <button class="button primary" type="submit" disabled="@(saving || importing)">@(saving ? "Kaydediliyor..." : form.Submit ? "Teklifi Gönder" : "Taslak Kaydet")</button>
                 </div>
             </EditForm>
         </section>
@@ -114,8 +131,11 @@ else
 @code {
     private readonly QuoteFormModel form = new();
     private bool saving;
+    private bool importing;
     private bool success;
+    private bool importSuccess;
     private string? message;
+    private string? importMessage;
 
     protected override void OnInitialized() => AddItem();
 
@@ -126,6 +146,26 @@ else
         if (form.Items.Count == 1)
             return;
         form.Items.RemoveAt(index);
+    }
+
+    private async Task ImportExcelAsync(InputFileChangeEventArgs eventArgs)
+    {
+        importing = true;
+        importMessage = null;
+        importSuccess = false;
+
+        var result = await ExcelImporter.ImportAsync(eventArgs.File);
+        importing = false;
+        importSuccess = result.Success;
+        importMessage = result.Message;
+
+        if (!result.Success)
+            return;
+
+        if (form.Items.Count == 1 && string.IsNullOrWhiteSpace(form.Items[0].ProductName))
+            form.Items.Clear();
+
+        form.Items.AddRange(result.Items);
     }
 
     private async Task SaveAsync()
@@ -159,6 +199,7 @@ else
             form.Title = string.Empty;
             form.Description = null;
             form.Items.Clear();
+            importMessage = null;
             AddItem();
         }
     }
