@@ -20,6 +20,7 @@ builder.Services.AddScoped<QuoteApiClient>();
 builder.Services.AddScoped<ProfileApiClient>();
 builder.Services.AddScoped<AdminApiClient>();
 builder.Services.AddScoped<AdminCatalogApiClient>();
+builder.Services.AddScoped<IntegrationStatusApiClient>();
 builder.Services.AddScoped<ExcelQuoteImporter>();
 builder.Services.AddScoped<CatalogApiClient>();
 builder.Services.AddScoped<CatalogSelection>();
