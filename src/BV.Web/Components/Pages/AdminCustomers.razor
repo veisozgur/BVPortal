@@ -27,7 +27,7 @@ else
     <div class="panel table-wrap"><table><thead><tr><th>Müşteri</th><th>Firma</th><th>İletişim</th><th>Konum</th><th>Teklif</th><th></th></tr></thead><tbody>
     @foreach (var item in items)
     {
-        <tr><td><strong>@item.FullName</strong></td><td>@item.OrganizationName</td><td>@item.PhoneNumber<br />@item.Email</td><td>@item.City / @item.District</td><td>@item.QuoteCount</td><td><button class="button ghost" @onclick="() => Navigation.NavigateTo($"/admin/customers/{item.Id}")">Detay</button></td></tr>
+        <tr><td><strong>@item.FullName</strong></td><td>@item.OrganizationName</td><td>@item.PhoneNumber<br />@item.Email</td><td>@item.City / @item.District</td><td>@item.QuoteCount</td><td><button class="button ghost" @onclick="() => OpenCustomer(item.Id)">Detay</button></td></tr>
     }
     </tbody></table></div>
 }
@@ -36,6 +36,21 @@ else
     private IReadOnlyList<AdminCustomerListItemModel> items = [];
     private bool loading = true;
     private string? search;
+
     protected override Task OnInitializedAsync() => LoadAsync();
-    private async Task LoadAsync() { loading = true; try { items = await Admin.ListCustomersAsync(search); } finally { loading = false; } }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        try
+        {
+            items = await Admin.ListCustomersAsync(search);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void OpenCustomer(Guid id) => Navigation.NavigateTo($"/admin/customers/{id}");
 }
