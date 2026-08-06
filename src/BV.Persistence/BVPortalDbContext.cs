@@ -5,6 +5,7 @@ using BV.Domain.Customers;
 using BV.Domain.Notifications;
 using BV.Domain.Orders;
 using BV.Domain.Quotes;
+using BV.Domain.Schools;
 using BV.Domain.Users;
 using Microsoft.EntityFrameworkCore;
 
@@ -30,6 +31,10 @@ public sealed class BVPortalDbContext(DbContextOptions<BVPortalDbContext> option
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<OrderSync> OrderSyncs => Set<OrderSync>();
     public DbSet<OrderStatusHistory> OrderStatusHistories => Set<OrderStatusHistory>();
+    public DbSet<School> Schools => Set<School>();
+    public DbSet<SchoolGrade> SchoolGrades => Set<SchoolGrade>();
+    public DbSet<SchoolSupplySet> SchoolSupplySets => Set<SchoolSupplySet>();
+    public DbSet<SchoolSupplySetItem> SchoolSupplySetItems => Set<SchoolSupplySetItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
