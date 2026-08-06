@@ -28,9 +28,14 @@ else if (status is null)
 else
 {
     <div class="metric-grid">
-        @ProviderCard(status.NetGsm)
-        @ProviderCard(status.Email)
-        @ProviderCard(status.Mikro)
+        @foreach (var provider in Providers)
+        {
+            <article class="metric-card">
+                <span>@provider.Name</span>
+                <strong>@(provider.Ready ? "Hazır" : provider.Message)</strong>
+                <small>@(provider.Enabled ? "Etkin" : "Devre dışı") · @(provider.Configured ? "Yapılandırıldı" : "Eksik ayar")</small>
+            </article>
+        }
     </div>
 
     <section class="panel">
@@ -48,6 +53,10 @@ else
     private IntegrationStatusModel? status;
     private bool loading = true;
 
+    private IEnumerable<IntegrationProviderStatus> Providers => status is null
+        ? []
+        : [status.NetGsm, status.Email, status.Mikro];
+
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
     private async Task LoadAsync()
@@ -56,13 +65,4 @@ else
         status = await Integrations.GetAsync();
         loading = false;
     }
-
-    private static RenderFragment ProviderCard(IntegrationProviderStatus provider) => builder =>
-    {
-        <article>
-            <span>@provider.Name</span>
-            <strong>@(provider.Ready ? "Hazır" : provider.Message)</strong>
-            <small>@(provider.Enabled ? "Etkin" : "Devre dışı") · @(provider.Configured ? "Yapılandırıldı" : "Eksik ayar")</small>
-        </article>
-    };
 }
