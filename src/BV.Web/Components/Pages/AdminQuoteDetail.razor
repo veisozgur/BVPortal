@@ -47,6 +47,47 @@ else
         </article>
     </section>
 
+    <section class="dashboard-grid">
+        <article class="panel">
+            <div class="panel-heading"><div><h2>Operasyon notları</h2><p>Yalnızca yönetim ekibinin görebileceği iç notlar.</p></div></div>
+            <textarea class="form-control" rows="3" @bind="newNote" placeholder="Notunuzu yazın..."></textarea>
+            <button class="button primary" @onclick="AddNoteAsync" disabled="@noteSaving">@(noteSaving ? "Ekleniyor..." : "Not Ekle")</button>
+            @foreach (var note in notes)
+            {
+                <div class="status-message"><strong>@note.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</strong><br />@note.Note</div>
+            }
+        </article>
+
+        @if (detail.Response is null)
+        {
+            <article class="panel">
+                <div class="panel-heading"><div><h2>Fiyat teklifi hazırla</h2><p>Talep kalemlerini fiyatlandırıp müşteriye gönderin.</p></div></div>
+                <label>Mesaj</label>
+                <textarea class="form-control" rows="3" @bind="answer.Message"></textarea>
+                <label>Geçerlilik tarihi</label>
+                <InputDate class="form-control" @bind-Value="answer.ValidUntilUtc" />
+
+                @foreach (var item in answer.Items)
+                {
+                    <div class="quote-item-row">
+                        <input class="form-control" @bind="item.ProductName" placeholder="Ürün" />
+                        <input class="form-control" type="number" step="0.01" @bind="item.Quantity" />
+                        <input class="form-control" @bind="item.Unit" placeholder="Birim" />
+                        <input class="form-control" type="number" step="0.01" @bind="item.UnitPrice" placeholder="Birim fiyat" />
+                        <input class="form-control" type="number" step="0.01" @bind="item.VatRate" placeholder="KDV" />
+                    </div>
+                }
+
+                <div class="auth-links">
+                    <label><InputCheckbox @bind-Value="answer.NotifyBySms" /> SMS gönder</label>
+                    <label><InputCheckbox @bind-Value="answer.NotifyByEmail" /> E-posta gönder</label>
+                </div>
+                <strong>Genel toplam: @AnswerTotal().ToString("N2") ₺</strong>
+                <button class="button primary" @onclick="SendAnswerAsync" disabled="@answerSaving">@(answerSaving ? "Gönderiliyor..." : "Teklifi Gönder")</button>
+            </article>
+        }
+    </section>
+
     @if (detail.Response is not null)
     {
         <article class="panel">
@@ -64,10 +105,15 @@ else
 @code {
     [Parameter] public Guid Id { get; set; }
     private AdminQuoteDetailModel? detail;
+    private IReadOnlyList<AdminOperationNoteModel> notes = [];
+    private readonly AdminAnswerQuoteModel answer = new();
     private bool loading = true;
     private bool saving;
+    private bool noteSaving;
+    private bool answerSaving;
     private bool success;
     private string? message;
+    private string newNote = string.Empty;
     private int selectedStatus = 2;
 
     protected override async Task OnParametersSetAsync()
@@ -76,8 +122,23 @@ else
         try
         {
             detail = await Admin.GetQuoteDetailAsync(Id);
+            notes = await Admin.ListOperationNotesAsync(Id);
             if (detail is not null)
+            {
                 selectedStatus = detail.Status;
+                if (answer.Items.Count == 0)
+                {
+                    foreach (var item in detail.Items)
+                    {
+                        answer.Items.Add(new AdminAnswerQuoteItemModel
+                        {
+                            ProductName = item.ProductName,
+                            Quantity = item.Quantity,
+                            Unit = item.Unit
+                        });
+                    }
+                }
+            }
         }
         finally { loading = false; }
     }
@@ -92,4 +153,34 @@ else
         if (result.Success && detail is not null)
             detail = detail with { Status = selectedStatus };
     }
+
+    private async Task AddNoteAsync()
+    {
+        if (string.IsNullOrWhiteSpace(newNote))
+            return;
+
+        noteSaving = true;
+        var result = await Admin.AddOperationNoteAsync(Id, newNote);
+        noteSaving = false;
+        success = result.Success;
+        message = result.Message;
+        if (result.Success)
+        {
+            newNote = string.Empty;
+            notes = await Admin.ListOperationNotesAsync(Id);
+        }
+    }
+
+    private async Task SendAnswerAsync()
+    {
+        answerSaving = true;
+        var result = await Admin.AnswerQuoteAsync(Id, answer);
+        answerSaving = false;
+        success = result.Success;
+        message = result.Message;
+        if (result.Success)
+            detail = await Admin.GetQuoteDetailAsync(Id);
+    }
+
+    private decimal AnswerTotal() => answer.Items.Sum(x => x.Quantity * x.UnitPrice * (1 + x.VatRate / 100m));
 }
