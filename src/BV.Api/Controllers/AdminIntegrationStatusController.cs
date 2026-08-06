@@ -17,15 +17,16 @@ public sealed class AdminIntegrationStatusController(IConfiguration configuratio
             && HasValue("NetGsm:Password")
             && HasValue("NetGsm:Header");
 
-        var emailEnabled = configuration.GetValue<bool>("Email:Enabled");
+        var emailEnabled = configuration.GetValue<bool>("Smtp:Enabled");
         var emailConfigured = emailEnabled
-            && HasValue("Email:Host")
-            && configuration.GetValue<int>("Email:Port") > 0
-            && HasValue("Email:FromAddress");
+            && HasValue("Smtp:Host")
+            && configuration.GetValue<int>("Smtp:Port") > 0
+            && HasValue("Smtp:FromAddress");
 
         var mikroEnabled = configuration.GetValue<bool>("Mikro:Enabled");
         var mikroConfigured = mikroEnabled
-            && HasValue("Mikro:ConnectionString")
+            && HasValue("Mikro:BaseUrl")
+            && HasValue("Mikro:ApiKey")
             && HasValue("Mikro:CompanyCode");
 
         return Ok(new
