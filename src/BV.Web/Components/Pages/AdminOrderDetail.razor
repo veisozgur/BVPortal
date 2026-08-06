@@ -1,0 +1,169 @@
+@page "/admin/orders/{Id:guid}"
+@rendermode InteractiveServer
+@using BV.Web.Services
+@inject AdminOrderApiClient Orders
+
+<PageTitle>Sipariş Detayı | BV Portal</PageTitle>
+
+@if (loading)
+{
+    <section class="panel">Sipariş yükleniyor...</section>
+}
+else if (order is null)
+{
+    <section class="panel empty-state">
+        <h2>Sipariş bulunamadı</h2>
+        <a class="button ghost" href="/admin/orders">Siparişlere Dön</a>
+    </section>
+}
+else
+{
+    <div class="page-heading">
+        <div>
+            <span class="eyebrow">Sipariş Operasyonu</span>
+            <h1>@order.OrderNumber</h1>
+            <p>@StatusName(order.Status) · @order.TotalAmount.ToString("N2") TL</p>
+        </div>
+        <a class="button ghost" href="/admin/orders">Siparişlere Dön</a>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <div class="form-message @(success ? "success-message" : "error-message")">@message</div>
+    }
+
+    <div class="metric-grid">
+        <article class="metric-card"><span>Durum</span><strong>@StatusName(order.Status)</strong></article>
+        <article class="metric-card"><span>Kalem</span><strong>@order.Items.Count</strong></article>
+        <article class="metric-card"><span>Toplam</span><strong>@order.TotalAmount.ToString("N2") TL</strong></article>
+        <article class="metric-card"><span>Oluşturma</span><strong>@order.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy")</strong></article>
+    </div>
+
+    <section class="panel">
+        <h2>Durum Güncelle</h2>
+        <div class="form-row">
+            <select class="input" @bind="selectedStatus">
+                @foreach (var option in StatusOptions)
+                {
+                    <option value="@option.Value">@option.Text</option>
+                }
+            </select>
+            <button class="button" @onclick="ChangeStatusAsync" disabled="@saving">Durumu Kaydet</button>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>Sipariş Notları</h2>
+        <div class="form-grid">
+            <label>Müşteri Notu
+                <textarea class="input" rows="4" @bind="customerNote"></textarea>
+            </label>
+            <label>İç Operasyon Notu
+                <textarea class="input" rows="4" @bind="internalNote"></textarea>
+            </label>
+        </div>
+        <button class="button" @onclick="SaveNotesAsync" disabled="@saving">Notları Kaydet</button>
+    </section>
+
+    <section class="panel">
+        <h2>Sipariş Kalemleri</h2>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Ürün</th>
+                        <th>Miktar</th>
+                        <th>Birim Fiyat</th>
+                        <th>KDV</th>
+                        <th>Toplam</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in order.Items)
+                    {
+                        <tr>
+                            <td>@item.ProductName</td>
+                            <td>@item.Quantity.ToString("N2") @item.Unit</td>
+                            <td>@item.UnitPrice.ToString("N2") TL</td>
+                            <td>%@item.VatRate.ToString("N0")</td>
+                            <td>@item.LineTotal.ToString("N2") TL</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private AdminOrderDetailModel? order;
+    private bool loading = true;
+    private bool saving;
+    private bool success;
+    private string? message;
+    private int selectedStatus = 1;
+    private string? customerNote;
+    private string? internalNote;
+
+    private static readonly IReadOnlyList<(int Value, string Text)> StatusOptions =
+    [
+        (1, "Oluşturuldu"),
+        (2, "Hazırlanıyor"),
+        (3, "Tedarik Bekliyor"),
+        (4, "Sevke Hazır"),
+        (5, "Sevk Edildi"),
+        (6, "Tamamlandı"),
+        (7, "İptal")
+    ];
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        order = await Orders.GetAsync(Id);
+        if (order is not null)
+        {
+            selectedStatus = order.Status;
+            customerNote = order.CustomerNote;
+            internalNote = order.InternalNote;
+        }
+        loading = false;
+    }
+
+    private async Task ChangeStatusAsync()
+    {
+        saving = true;
+        var result = await Orders.ChangeStatusAsync(Id, selectedStatus);
+        success = result.Success;
+        message = result.Message;
+        saving = false;
+        if (result.Success)
+            await LoadAsync();
+    }
+
+    private async Task SaveNotesAsync()
+    {
+        saving = true;
+        var result = await Orders.UpdateNotesAsync(Id, customerNote, internalNote);
+        success = result.Success;
+        message = result.Message;
+        saving = false;
+        if (result.Success)
+            await LoadAsync();
+    }
+
+    private static string StatusName(int status) => status switch
+    {
+        1 => "Oluşturuldu",
+        2 => "Hazırlanıyor",
+        3 => "Tedarik Bekliyor",
+        4 => "Sevke Hazır",
+        5 => "Sevk Edildi",
+        6 => "Tamamlandı",
+        7 => "İptal",
+        _ => "Bilinmiyor"
+    };
+}
