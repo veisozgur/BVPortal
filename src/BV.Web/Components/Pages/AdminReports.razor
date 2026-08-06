@@ -1,0 +1,126 @@
+@page "/admin/reports"
+@rendermode InteractiveServer
+@using BV.Web.Services
+@inject AdminReportsApiClient Reports
+
+<PageTitle>Raporlar | BV Portal</PageTitle>
+
+<div class="page-heading">
+    <div>
+        <span class="eyebrow">Yönetim Paneli</span>
+        <h1>Teklif Raporları</h1>
+        <p>Teklif hacmini, cevap süresini, dönüşüm oranını ve talep edilen ürünleri analiz edin.</p>
+    </div>
+    <div class="form-row">
+        <select class="input" @bind="days" @bind:after="LoadAsync">
+            <option value="7">Son 7 gün</option>
+            <option value="30">Son 30 gün</option>
+            <option value="90">Son 90 gün</option>
+            <option value="180">Son 180 gün</option>
+            <option value="365">Son 365 gün</option>
+        </select>
+        <button class="button ghost" @onclick="LoadAsync" disabled="@loading">Yenile</button>
+    </div>
+</div>
+
+@if (loading)
+{
+    <section class="panel">Rapor hazırlanıyor...</section>
+}
+else if (report is null)
+{
+    <section class="panel empty-state">
+        <h2>Rapor alınamadı</h2>
+        <p>Yönetici oturumunu ve API bağlantısını kontrol edin.</p>
+    </section>
+}
+else
+{
+    <div class="metric-grid">
+        <article class="metric-card"><span>Toplam teklif</span><strong>@report.Total</strong></article>
+        <article class="metric-card"><span>Cevaplanma oranı</span><strong>%@report.AnswerRate</strong></article>
+        <article class="metric-card"><span>Dönüşüm oranı</span><strong>%@report.ConversionRate</strong></article>
+        <article class="metric-card"><span>Ortalama cevap</span><strong>@FormatDuration(report.AverageResponseMinutes)</strong></article>
+    </div>
+
+    <div class="metric-grid">
+        <article class="metric-card"><span>Gönderilen</span><strong>@report.Submitted</strong></article>
+        <article class="metric-card"><span>Cevaplanan</span><strong>@report.Answered</strong></article>
+        <article class="metric-card"><span>Kabul edilen</span><strong>@report.Accepted</strong></article>
+        <article class="metric-card"><span>Reddedilen</span><strong>@report.Rejected</strong></article>
+    </div>
+
+    <div class="quote-builder">
+        <section class="panel">
+            <div class="panel-heading compact">
+                <div>
+                    <h2>Günlük performans</h2>
+                    <p>Oluşturulan, cevaplanan ve kabul edilen tekliflerin günlük dağılımı.</p>
+                </div>
+            </div>
+            @if (report.Daily.Count == 0)
+            {
+                <div class="empty-state">Seçilen dönemde veri bulunamadı.</div>
+            }
+            else
+            {
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Tarih</th><th>Oluşturulan</th><th>Cevaplanan</th><th>Kabul</th></tr></thead>
+                        <tbody>
+                            @foreach (var item in report.Daily.OrderByDescending(x => x.Date))
+                            {
+                                <tr>
+                                    <td>@item.Date.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                                    <td>@item.Created</td>
+                                    <td>@item.Answered</td>
+                                    <td>@item.Accepted</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+
+        <aside class="panel quote-summary">
+            <span class="eyebrow">Teklif Türleri</span>
+            <h2>@report.PeriodDays günlük dağılım</h2>
+            <div class="summary-line"><span>Okul teklifleri</span><strong>@report.School</strong></div>
+            <div class="summary-line"><span>Ofis teklifleri</span><strong>@report.Office</strong></div>
+            <hr />
+            <span class="eyebrow">En Çok Talep Edilenler</span>
+            @foreach (var product in report.TopProducts)
+            {
+                <div class="summary-line">
+                    <span>@product.ProductName</span>
+                    <strong>@product.RequestCount talep / @product.TotalQuantity</strong>
+                </div>
+            }
+        </aside>
+    </div>
+}
+
+@code {
+    private AdminReportSummaryModel? report;
+    private int days = 30;
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        report = await Reports.GetSummaryAsync(days);
+        loading = false;
+    }
+
+    private static string FormatDuration(decimal minutes)
+    {
+        if (minutes < 60)
+            return $"{Math.Round(minutes)} dk";
+        if (minutes < 1440)
+            return $"{Math.Round(minutes / 60, 1)} sa";
+        return $"{Math.Round(minutes / 1440, 1)} gün";
+    }
+}
