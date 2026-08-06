@@ -3,6 +3,7 @@ using BV.Domain.Authentication;
 using BV.Domain.Catalog;
 using BV.Domain.Customers;
 using BV.Domain.Notifications;
+using BV.Domain.Orders;
 using BV.Domain.Quotes;
 using BV.Domain.Users;
 using Microsoft.EntityFrameworkCore;
@@ -25,6 +26,10 @@ public sealed class BVPortalDbContext(DbContextOptions<BVPortalDbContext> option
     public DbSet<QuoteOperationNote> QuoteOperationNotes => Set<QuoteOperationNote>();
     public DbSet<ProductCategory> ProductCategories => Set<ProductCategory>();
     public DbSet<Product> Products => Set<Product>();
+    public DbSet<Order> Orders => Set<Order>();
+    public DbSet<OrderItem> OrderItems => Set<OrderItem>();
+    public DbSet<OrderSync> OrderSyncs => Set<OrderSync>();
+    public DbSet<OrderStatusHistory> OrderStatusHistories => Set<OrderStatusHistory>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

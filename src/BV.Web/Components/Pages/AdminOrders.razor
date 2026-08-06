@@ -1,0 +1,130 @@
+@page "/admin/orders"
+@rendermode InteractiveServer
+@using BV.Web.Services
+@inject AdminOrderApiClient Orders
+
+<PageTitle>Siparişler | BV Portal</PageTitle>
+
+<div class="page-heading">
+    <div>
+        <span class="eyebrow">Yönetim Paneli</span>
+        <h1>Siparişler</h1>
+        <p>Kabul edilen tekliflerden oluşan siparişleri takip edin ve yönetin.</p>
+    </div>
+    <button class="button ghost" @onclick="LoadAsync" disabled="@loading">Yenile</button>
+</div>
+
+<section class="panel form-row">
+    <label>Sipariş Ara
+        <input class="input" @bind="search" @bind:event="oninput" placeholder="Sipariş numarası" />
+    </label>
+    <label>Durum
+        <select class="input" @bind="statusFilter">
+            <option value="">Tümü</option>
+            @foreach (var option in StatusOptions)
+            {
+                <option value="@option.Value">@option.Text</option>
+            }
+        </select>
+    </label>
+    <button class="button" @onclick="LoadAsync" disabled="@loading">Filtrele</button>
+</section>
+
+@if (loading)
+{
+    <section class="panel">Siparişler yükleniyor...</section>
+}
+else if (ordersPage is null)
+{
+    <section class="panel empty-state">
+        <h2>Siparişler alınamadı</h2>
+        <p>Yönetici oturumunu ve API bağlantısını kontrol edin.</p>
+    </section>
+}
+else
+{
+    <div class="metric-grid">
+        <article class="metric-card"><span>Toplam Sipariş</span><strong>@ordersPage.TotalCount</strong></article>
+        <article class="metric-card"><span>Sayfa</span><strong>@ordersPage.Page / @Math.Max(ordersPage.TotalPages, 1)</strong></article>
+    </div>
+
+    <section class="panel">
+        @if (ordersPage.Items.Count == 0)
+        {
+            <div class="empty-state">
+                <h2>Sipariş bulunamadı</h2>
+                <p>Seçilen filtrelere uygun sipariş kaydı yok.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sipariş No</th>
+                            <th>Durum</th>
+                            <th>Kalem</th>
+                            <th>Toplam</th>
+                            <th>Oluşturma</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var order in ordersPage.Items)
+                        {
+                            <tr>
+                                <td><strong>@order.OrderNumber</strong></td>
+                                <td>@StatusName(order.Status)</td>
+                                <td>@order.ItemCount</td>
+                                <td>@order.TotalAmount.ToString("N2") TL</td>
+                                <td>@order.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                <td><a class="button ghost" href="@($"/admin/orders/{order.Id}")">Detay</a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+}
+
+@code {
+    private AdminOrderPageModel? ordersPage;
+    private bool loading = true;
+    private string search = string.Empty;
+    private string statusFilter = string.Empty;
+
+    private static readonly IReadOnlyList<(int Value, string Text)> StatusOptions =
+    [
+        (1, "Oluşturuldu"),
+        (2, "Hazırlanıyor"),
+        (3, "Tedarik Bekliyor"),
+        (4, "Sevke Hazır"),
+        (5, "Sevk Edildi"),
+        (6, "Tamamlandı"),
+        (7, "İptal")
+    ];
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        int? status = int.TryParse(statusFilter, out var value) ? value : null;
+        ordersPage = await Orders.ListAsync(status, search);
+        loading = false;
+    }
+
+    private static string StatusName(int status) => status switch
+    {
+        1 => "Oluşturuldu",
+        2 => "Hazırlanıyor",
+        3 => "Tedarik Bekliyor",
+        4 => "Sevke Hazır",
+        5 => "Sevk Edildi",
+        6 => "Tamamlandı",
+        7 => "İptal",
+        _ => "Bilinmiyor"
+    };
+}

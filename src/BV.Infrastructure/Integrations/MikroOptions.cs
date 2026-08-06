@@ -9,4 +9,5 @@ public sealed class MikroOptions
     public string ApiKey { get; init; } = string.Empty;
     public string CompanyCode { get; init; } = string.Empty;
     public string ProductsPath { get; init; } = "api/products";
+    public string OrdersPath { get; init; } = "api/orders";
 }
