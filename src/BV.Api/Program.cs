@@ -7,6 +7,7 @@ using BV.Application.Abstractions.Notifications;
 using BV.Application.Abstractions.Quotes;
 using BV.Application.Abstractions.Users;
 using BV.Infrastructure.Authentication;
+using BV.Infrastructure.Integrations;
 using BV.Infrastructure.Notifications;
 using BV.Persistence;
 using BV.Persistence.Queries;
@@ -50,6 +51,7 @@ builder.Services.AddHealthChecks();
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 builder.Services.Configure<NetGsmOptions>(builder.Configuration.GetSection(NetGsmOptions.SectionName));
 builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection(SmtpOptions.SectionName));
+builder.Services.Configure<MikroOptions>(builder.Configuration.GetSection(MikroOptions.SectionName));
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IOtpCodeRepository, OtpCodeRepository>();
@@ -82,6 +84,14 @@ else
 {
     builder.Services.AddScoped<ISmsSender, DevelopmentSmsSender>();
 }
+
+var mikroOptions = builder.Configuration.GetSection(MikroOptions.SectionName).Get<MikroOptions>() ?? new();
+builder.Services.AddHttpClient("MikroBridge", client =>
+{
+    if (!string.IsNullOrWhiteSpace(mikroOptions.BaseUrl))
+        client.BaseAddress = new Uri(mikroOptions.BaseUrl.TrimEnd('/') + "/");
+    client.Timeout = TimeSpan.FromMinutes(2);
+});
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("DefaultConnection is not configured.");
