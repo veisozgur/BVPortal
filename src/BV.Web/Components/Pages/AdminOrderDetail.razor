@@ -40,6 +40,36 @@ else
     </div>
 
     <section class="panel">
+        <div class="page-heading">
+            <div>
+                <h2>Mikro ERP Senkronizasyonu</h2>
+                <p>Siparişi Mikro Bridge üzerinden ERP'ye aktarın ve aktarım sonucunu izleyin.</p>
+            </div>
+            <button class="button" @onclick="SyncToMikroAsync" disabled="@syncing">
+                @(syncing ? "Gönderiliyor..." : syncStatus?.Status == 3 ? "Tekrar Gönder" : "Mikro'ya Gönder")
+            </button>
+        </div>
+
+        @if (syncStatus is null)
+        {
+            <p>Bu sipariş için henüz bir Mikro aktarım kaydı bulunmuyor.</p>
+        }
+        else
+        {
+            <div class="metric-grid">
+                <article class="metric-card"><span>Senkronizasyon</span><strong>@SyncStatusName(syncStatus.Status)</strong></article>
+                <article class="metric-card"><span>Mikro Sipariş No</span><strong>@(syncStatus.ExternalOrderId ?? "-")</strong></article>
+                <article class="metric-card"><span>Deneme</span><strong>@syncStatus.AttemptCount</strong></article>
+                <article class="metric-card"><span>Son İşlem</span><strong>@(syncStatus.LastAttemptAtUtc?.ToLocalTime().ToString("dd.MM.yyyy HH:mm") ?? "-")</strong></article>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(syncStatus.ErrorMessage))
+            {
+                <div class="form-message error-message">@syncStatus.ErrorMessage</div>
+            }
+        }
+    </section>
+
+    <section class="panel">
         <h2>Durum Güncelle</h2>
         <div class="form-row">
             <select class="input" @bind="selectedStatus">
@@ -99,8 +129,10 @@ else
     [Parameter] public Guid Id { get; set; }
 
     private AdminOrderDetailModel? order;
+    private OrderSyncStatusModel? syncStatus;
     private bool loading = true;
     private bool saving;
+    private bool syncing;
     private bool success;
     private string? message;
     private int selectedStatus = 1;
@@ -124,6 +156,7 @@ else
     {
         loading = true;
         order = await Orders.GetAsync(Id);
+        syncStatus = await Orders.GetSyncStatusAsync(Id);
         if (order is not null)
         {
             selectedStatus = order.Status;
@@ -131,6 +164,16 @@ else
             internalNote = order.InternalNote;
         }
         loading = false;
+    }
+
+    private async Task SyncToMikroAsync()
+    {
+        syncing = true;
+        var result = await Orders.SyncToMikroAsync(Id);
+        success = result.Success;
+        message = result.Message;
+        syncing = false;
+        syncStatus = await Orders.GetSyncStatusAsync(Id);
     }
 
     private async Task ChangeStatusAsync()
@@ -154,6 +197,15 @@ else
         if (result.Success)
             await LoadAsync();
     }
+
+    private static string SyncStatusName(int status) => status switch
+    {
+        1 => "Bekliyor",
+        2 => "İşleniyor",
+        3 => "Başarılı",
+        4 => "Başarısız",
+        _ => "Bilinmiyor"
+    };
 
     private static string StatusName(int status) => status switch
     {
