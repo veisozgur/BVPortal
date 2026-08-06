@@ -1,0 +1,68 @@
+@page "/admin/integrations"
+@rendermode InteractiveServer
+@using BV.Web.Services
+@inject IntegrationStatusApiClient Integrations
+
+<PageTitle>Entegrasyonlar | BV Portal</PageTitle>
+
+<div class="page-heading">
+    <div>
+        <span class="eyebrow">Yönetim Paneli</span>
+        <h1>Entegrasyon Durumu</h1>
+        <p>SMS, e-posta ve Mikro ERP bağlantılarının yapılandırma durumunu kontrol edin.</p>
+    </div>
+    <button class="button ghost" @onclick="LoadAsync" disabled="@loading">Yenile</button>
+</div>
+
+@if (loading)
+{
+    <div class="panel">Entegrasyonlar kontrol ediliyor...</div>
+}
+else if (status is null)
+{
+    <div class="panel empty-state">
+        <h2>Durum alınamadı</h2>
+        <p>Yönetici oturumunu ve API bağlantısını kontrol edin.</p>
+    </div>
+}
+else
+{
+    <div class="metric-grid">
+        @ProviderCard(status.NetGsm)
+        @ProviderCard(status.Email)
+        @ProviderCard(status.Mikro)
+    </div>
+
+    <section class="panel">
+        <h2>Canlı ortam kontrol listesi</h2>
+        <p>Hazır olmayan servisler için ilgili ayarları API ortam değişkenleri veya güvenli secret yönetimi üzerinden tanımlayın.</p>
+        <ul>
+            <li>NetGSM: kullanıcı kodu, parola ve SMS başlığı</li>
+            <li>E-posta: SMTP sunucusu, port ve gönderen adresi</li>
+            <li>Mikro ERP: bağlantı bilgisi ve firma kodu</li>
+        </ul>
+    </section>
+}
+
+@code {
+    private IntegrationStatusModel? status;
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        status = await Integrations.GetAsync();
+        loading = false;
+    }
+
+    private static RenderFragment ProviderCard(IntegrationProviderStatus provider) => builder =>
+    {
+        <article>
+            <span>@provider.Name</span>
+            <strong>@(provider.Ready ? "Hazır" : provider.Message)</strong>
+            <small>@(provider.Enabled ? "Etkin" : "Devre dışı") · @(provider.Configured ? "Yapılandırıldı" : "Eksik ayar")</small>
+        </article>
+    };
+}
