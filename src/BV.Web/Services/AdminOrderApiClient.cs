@@ -37,6 +37,11 @@ public sealed class AdminOrderApiClient(IHttpClientFactory httpClientFactory, Au
             ? null
             : await CreateClient().GetFromJsonAsync<AdminOrderDetailModel>($"api/v1/admin/orders/{id}", cancellationToken);
 
+    public async Task<IReadOnlyList<OrderTimelineItemModel>> GetTimelineAsync(Guid id, CancellationToken cancellationToken = default) =>
+        !session.IsAdmin
+            ? []
+            : await CreateClient().GetFromJsonAsync<List<OrderTimelineItemModel>>($"api/v1/orders/{id}/timeline", cancellationToken) ?? [];
+
     public async Task<OrderSyncStatusModel?> GetSyncStatusAsync(Guid id, CancellationToken cancellationToken = default)
     {
         if (!session.IsAdmin)
@@ -60,11 +65,15 @@ public sealed class AdminOrderApiClient(IHttpClientFactory httpClientFactory, Au
             : ApiResult.Fail(body?.Message ?? $"Mikro aktarımı başarısız ({(int)response.StatusCode}).");
     }
 
-    public async Task<ApiResult> ChangeStatusAsync(Guid id, int status, CancellationToken cancellationToken = default)
+    public async Task<ApiResult> ChangeStatusAsync(
+        Guid id,
+        int status,
+        string? note = null,
+        CancellationToken cancellationToken = default)
     {
         var response = await CreateClient().PutAsJsonAsync(
             $"api/v1/admin/orders/{id}/status",
-            new { status },
+            new { status, note },
             cancellationToken);
 
         ApiMessage? body = null;

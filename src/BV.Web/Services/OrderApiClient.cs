@@ -22,6 +22,11 @@ public sealed class OrderApiClient(IHttpClientFactory httpClientFactory, AuthSes
         !session.IsAuthenticated
             ? null
             : await CreateClient().GetFromJsonAsync<CustomerOrderDetailModel>($"api/v1/orders/{orderId}", cancellationToken);
+
+    public async Task<IReadOnlyList<OrderTimelineItemModel>> GetTimelineAsync(Guid orderId, CancellationToken cancellationToken = default) =>
+        !session.IsAuthenticated
+            ? []
+            : await CreateClient().GetFromJsonAsync<List<OrderTimelineItemModel>>($"api/v1/orders/{orderId}/timeline", cancellationToken) ?? [];
 }
 
 public sealed record CustomerOrderListItemModel(
@@ -57,3 +62,11 @@ public sealed record CustomerOrderItemModel(
     decimal UnitPrice,
     decimal VatRate,
     decimal LineTotal);
+
+public sealed record OrderTimelineItemModel(
+    Guid Id,
+    int FromStatus,
+    int ToStatus,
+    string? Note,
+    Guid? ChangedByUserId,
+    DateTime ChangedAtUtc);
