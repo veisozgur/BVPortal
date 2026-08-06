@@ -49,7 +49,7 @@ public sealed class AdminReportsController(BVPortalDbContext dbContext) : Contro
         var topProducts = await dbContext.QuoteRequestItems
             .AsNoTracking()
             .Where(x => dbContext.QuoteRequests
-                .Any(q => q.Id == EF.Property<Guid>(x, "QuoteRequestId") && q.CreatedAtUtc >= fromUtc))
+                .Any(q => q.Id == x.QuoteRequestId && q.CreatedAtUtc >= fromUtc))
             .GroupBy(x => x.ProductName)
             .Select(group => new
             {
