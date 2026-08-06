@@ -1,0 +1,306 @@
+@page "/admin/supply-sets"
+@rendermode InteractiveServer
+@using BV.Web.Services
+@inject AdminSchoolSupplySetApiClient Sets
+@inject AdminSchoolApiClient Schools
+
+<PageTitle>Okul Setleri | BV Portal</PageTitle>
+
+<div class="page-heading">
+    <div>
+        <span class="eyebrow">Okul Sezonu</span>
+        <h1>Okul Setleri</h1>
+        <p>Okul, sınıf ve eğitim yılı bazlı kırtasiye setlerini yönetin.</p>
+    </div>
+    <button class="button" @onclick="NewSet">Yeni Set</button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <div class="form-message @(success ? "success-message" : "error-message")">@message</div>
+}
+
+<section class="panel">
+    <div class="form-row">
+        <select class="input" @bind="filterSchoolId" @bind:after="FilterSchoolChangedAsync">
+            <option value="">Tüm okullar</option>
+            @foreach (var school in schools)
+            {
+                <option value="@school.Id">@school.Name</option>
+            }
+        </select>
+        <select class="input" @bind="filterGradeId">
+            <option value="">Tüm sınıflar</option>
+            @foreach (var grade in filterGrades)
+            {
+                <option value="@grade.Id">@grade.Name</option>
+            }
+        </select>
+        <input class="input" type="number" @bind="filterYear" placeholder="Eğitim yılı" />
+        <button class="button ghost" @onclick="LoadSetsAsync">Filtrele</button>
+    </div>
+</section>
+
+<div class="content-grid">
+    <section class="panel">
+        <h2>Set Listesi</h2>
+        @if (loading)
+        {
+            <p>Setler yükleniyor...</p>
+        }
+        else if (sets.Count == 0)
+        {
+            <p>Tanımlı okul seti bulunamadı.</p>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Set</th><th>Okul / Sınıf</th><th>Yıl</th><th>Kalem</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var item in sets)
+                        {
+                            <tr>
+                                <td><strong>@item.Name</strong><br /><small>@(item.IsActive ? "Aktif" : "Pasif")</small></td>
+                                <td>@item.SchoolName<br /><small>@item.GradeName</small></td>
+                                <td>@item.AcademicYear</td>
+                                <td>@item.ItemCount</td>
+                                <td><button class="button ghost" @onclick="() => SelectSetAsync(item.Id)">Aç</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <section class="panel">
+        <h2>@(selectedSetId.HasValue ? "Seti Düzenle" : "Yeni Set")</h2>
+        <div class="form-grid">
+            <label>Okul
+                <select class="input" @bind="editSchoolId" @bind:after="EditSchoolChangedAsync" disabled="@selectedSetId.HasValue">
+                    <option value="">Okul seçin</option>
+                    @foreach (var school in schools)
+                    {
+                        <option value="@school.Id">@school.Name</option>
+                    }
+                </select>
+            </label>
+            <label>Sınıf / Kademe
+                <select class="input" @bind="editGradeId" disabled="@selectedSetId.HasValue">
+                    <option value="">Sınıf seçin</option>
+                    @foreach (var grade in editGrades)
+                    {
+                        <option value="@grade.Id">@grade.Name</option>
+                    }
+                </select>
+            </label>
+            <label>Set Adı<input class="input" @bind="editName" /></label>
+            <label>Eğitim Yılı<input class="input" type="number" @bind="editYear" disabled="@selectedSetId.HasValue" /></label>
+            <label class="full-width">Açıklama<textarea class="input" rows="3" @bind="editDescription"></textarea></label>
+            <label><input type="checkbox" @bind="editActive" /> Aktif</label>
+        </div>
+        <button class="button" @onclick="SaveSetAsync" disabled="@saving">@(saving ? "Kaydediliyor..." : "Kaydet")</button>
+    </section>
+</div>
+
+@if (detail is not null)
+{
+    <div class="content-grid">
+        <section class="panel">
+            <h2>Set Kalemleri</h2>
+            <div class="form-row">
+                <input class="input" placeholder="Ürün adı" @bind="itemName" />
+                <input class="input" type="number" step="0.01" min="0.01" @bind="itemQuantity" />
+                <input class="input" placeholder="Birim" @bind="itemUnit" />
+                <input class="input" placeholder="Not" @bind="itemNote" />
+                <button class="button" @onclick="AddItemAsync">Ekle</button>
+            </div>
+            @if (detail.Items.Count == 0)
+            {
+                <p>Sette ürün bulunmuyor.</p>
+            }
+            else
+            {
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Ürün</th><th>Miktar</th><th>Not</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var item in detail.Items)
+                            {
+                                <tr>
+                                    <td>@item.ProductName</td>
+                                    <td>@item.Quantity.ToString("N2") @item.Unit</td>
+                                    <td>@item.Note</td>
+                                    <td><button class="button ghost" @onclick="() => DeleteItemAsync(item.Id)">Sil</button></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+
+        <section class="panel">
+            <h2>Yeni Eğitim Yılına Kopyala</h2>
+            <p>Mevcut set ve bütün ürün kalemleri yeni eğitim yılı için çoğaltılır.</p>
+            <div class="form-grid">
+                <label>Hedef Yıl<input class="input" type="number" @bind="copyYear" /></label>
+                <label>Yeni Set Adı<input class="input" @bind="copyName" /></label>
+            </div>
+            <button class="button" @onclick="CopySetAsync">Seti Kopyala</button>
+        </section>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<SchoolListItemModel> schools = [];
+    private IReadOnlyList<SchoolGradeModel> filterGrades = [];
+    private IReadOnlyList<SchoolGradeModel> editGrades = [];
+    private IReadOnlyList<SchoolSupplySetListItemModel> sets = [];
+    private SchoolSupplySetDetailModel? detail;
+    private Guid? selectedSetId;
+    private Guid? filterSchoolId;
+    private Guid? filterGradeId;
+    private int? filterYear;
+    private Guid? editSchoolId;
+    private Guid? editGradeId;
+    private string editName = string.Empty;
+    private int editYear = DateTime.Now.Year;
+    private string? editDescription;
+    private bool editActive = true;
+    private string itemName = string.Empty;
+    private decimal itemQuantity = 1;
+    private string itemUnit = "Adet";
+    private string? itemNote;
+    private int copyYear = DateTime.Now.Year + 1;
+    private string? copyName;
+    private bool loading = true;
+    private bool saving;
+    private bool success;
+    private string? message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        schools = await Schools.ListAsync(isActive: true);
+        await LoadSetsAsync();
+    }
+
+    private async Task LoadSetsAsync()
+    {
+        loading = true;
+        sets = await Sets.ListAsync(filterSchoolId, filterGradeId, filterYear);
+        loading = false;
+    }
+
+    private async Task FilterSchoolChangedAsync()
+    {
+        filterGradeId = null;
+        filterGrades = await LoadGradesAsync(filterSchoolId);
+    }
+
+    private async Task EditSchoolChangedAsync()
+    {
+        editGradeId = null;
+        editGrades = await LoadGradesAsync(editSchoolId);
+    }
+
+    private async Task<IReadOnlyList<SchoolGradeModel>> LoadGradesAsync(Guid? schoolId)
+    {
+        if (!schoolId.HasValue) return [];
+        var school = await Schools.GetAsync(schoolId.Value);
+        return school?.Grades.Where(x => x.IsActive).OrderBy(x => x.SortOrder).ToList() ?? [];
+    }
+
+    private void NewSet()
+    {
+        selectedSetId = null;
+        detail = null;
+        editSchoolId = null;
+        editGradeId = null;
+        editGrades = [];
+        editName = string.Empty;
+        editYear = DateTime.Now.Year;
+        editDescription = null;
+        editActive = true;
+        message = null;
+    }
+
+    private async Task SelectSetAsync(Guid id)
+    {
+        detail = await Sets.GetAsync(id);
+        if (detail is null) return;
+        selectedSetId = id;
+        editSchoolId = detail.School.Id;
+        editGrades = await LoadGradesAsync(editSchoolId);
+        editGradeId = detail.Grade.Id;
+        editName = detail.Name;
+        editYear = detail.AcademicYear;
+        editDescription = detail.Description;
+        editActive = detail.IsActive;
+        copyYear = detail.AcademicYear + 1;
+        copyName = detail.Name;
+    }
+
+    private async Task SaveSetAsync()
+    {
+        if (string.IsNullOrWhiteSpace(editName) || !editSchoolId.HasValue || !editGradeId.HasValue)
+        {
+            success = false;
+            message = "Okul, sınıf ve set adı zorunludur.";
+            return;
+        }
+
+        saving = true;
+        ApiResult result;
+        if (selectedSetId.HasValue)
+            result = await Sets.UpdateAsync(selectedSetId.Value, new UpdateSchoolSupplySetModel(editName, editDescription, editActive));
+        else
+            result = await Sets.CreateAsync(new SaveSchoolSupplySetModel(editSchoolId.Value, editGradeId.Value, editName, editYear, editDescription, editActive));
+
+        saving = false;
+        success = result.Success;
+        message = result.Message;
+        await LoadSetsAsync();
+        if (result.Success && selectedSetId.HasValue)
+            await SelectSetAsync(selectedSetId.Value);
+    }
+
+    private async Task AddItemAsync()
+    {
+        if (!selectedSetId.HasValue || string.IsNullOrWhiteSpace(itemName) || itemQuantity <= 0 || string.IsNullOrWhiteSpace(itemUnit)) return;
+        var result = await Sets.AddItemAsync(selectedSetId.Value, new SaveSchoolSupplySetItemModel(null, itemName, itemQuantity, itemUnit, itemNote));
+        success = result.Success;
+        message = result.Message;
+        if (result.Success)
+        {
+            itemName = string.Empty;
+            itemQuantity = 1;
+            itemNote = null;
+            await SelectSetAsync(selectedSetId.Value);
+            await LoadSetsAsync();
+        }
+    }
+
+    private async Task DeleteItemAsync(Guid itemId)
+    {
+        if (!selectedSetId.HasValue) return;
+        var result = await Sets.DeleteItemAsync(selectedSetId.Value, itemId);
+        success = result.Success;
+        message = result.Message;
+        if (result.Success)
+        {
+            await SelectSetAsync(selectedSetId.Value);
+            await LoadSetsAsync();
+        }
+    }
+
+    private async Task CopySetAsync()
+    {
+        if (!selectedSetId.HasValue) return;
+        var result = await Sets.CopyAsync(selectedSetId.Value, copyYear, copyName);
+        success = result.Success;
+        message = result.Message;
+        if (result.Success) await LoadSetsAsync();
+    }
+}
