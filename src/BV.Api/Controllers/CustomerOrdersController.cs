@@ -55,6 +55,20 @@ public sealed class CustomerOrdersController(
         if (order is null)
             return NotFound();
 
+        var timeline = await dbContext.OrderStatusHistories
+            .AsNoTracking()
+            .Where(x => x.OrderId == orderId)
+            .OrderBy(x => x.ChangedAtUtc)
+            .Select(x => new
+            {
+                x.Id,
+                x.PreviousStatus,
+                x.NewStatus,
+                x.Note,
+                x.ChangedAtUtc
+            })
+            .ToListAsync(cancellationToken);
+
         return Ok(new
         {
             order.Id,
@@ -76,7 +90,8 @@ public sealed class CustomerOrdersController(
                 item.UnitPrice,
                 item.VatRate,
                 item.LineTotal
-            })
+            }),
+            timeline
         });
     }
 
