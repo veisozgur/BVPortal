@@ -21,23 +21,23 @@ public sealed class IntegrationStatusApiClient(IHttpClientFactory httpClientFact
         return await CreateClient().GetFromJsonAsync<IntegrationStatusModel>("api/v1/admin/integrations/status", cancellationToken);
     }
 
-    public async Task<ApiResult<MikroSyncResultModel>> SyncMikroCatalogAsync(CancellationToken cancellationToken = default)
+    public async Task<MikroSyncApiResult> SyncMikroCatalogAsync(CancellationToken cancellationToken = default)
     {
         if (!session.IsAdmin || string.IsNullOrWhiteSpace(session.AccessToken))
-            return ApiResult<MikroSyncResultModel>.Fail("Yönetici oturumu gerekli.");
+            return MikroSyncApiResult.Fail("Yönetici oturumu gerekli.");
 
         using var response = await CreateClient().PostAsync("api/v1/admin/integrations/mikro/sync-catalog", null, cancellationToken);
         if (response.IsSuccessStatusCode)
         {
             var result = await response.Content.ReadFromJsonAsync<MikroSyncResultModel>(cancellationToken: cancellationToken);
             return result is null
-                ? ApiResult<MikroSyncResultModel>.Fail("Senkronizasyon sonucu okunamadı.")
-                : ApiResult<MikroSyncResultModel>.Ok(result, "Mikro katalog senkronizasyonu tamamlandı.");
+                ? MikroSyncApiResult.Fail("Senkronizasyon sonucu okunamadı.")
+                : MikroSyncApiResult.Ok(result, "Mikro katalog senkronizasyonu tamamlandı.");
         }
 
         ApiMessage? error = null;
         try { error = await response.Content.ReadFromJsonAsync<ApiMessage>(cancellationToken: cancellationToken); } catch { }
-        return ApiResult<MikroSyncResultModel>.Fail(error?.Message ?? $"Senkronizasyon başarısız ({(int)response.StatusCode}).");
+        return MikroSyncApiResult.Fail(error?.Message ?? $"Senkronizasyon başarısız ({(int)response.StatusCode}).");
     }
 }
 
@@ -58,3 +58,9 @@ public sealed record MikroSyncResultModel(
     int CreatedProducts,
     int UpdatedProducts,
     int SkippedRows);
+
+public sealed record MikroSyncApiResult(bool Success, string Message, MikroSyncResultModel? Data)
+{
+    public static MikroSyncApiResult Ok(MikroSyncResultModel data, string message) => new(true, message, data);
+    public static MikroSyncApiResult Fail(string message) => new(false, message, null);
+}
