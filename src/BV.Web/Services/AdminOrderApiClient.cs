@@ -60,11 +60,15 @@ public sealed class AdminOrderApiClient(IHttpClientFactory httpClientFactory, Au
             : ApiResult.Fail(body?.Message ?? $"Mikro aktarımı başarısız ({(int)response.StatusCode}).");
     }
 
-    public async Task<ApiResult> ChangeStatusAsync(Guid id, int status, CancellationToken cancellationToken = default)
+    public async Task<ApiResult> ChangeStatusAsync(
+        Guid id,
+        int status,
+        string? note = null,
+        CancellationToken cancellationToken = default)
     {
         var response = await CreateClient().PutAsJsonAsync(
             $"api/v1/admin/orders/{id}/status",
-            new { status },
+            new { status, note },
             cancellationToken);
 
         ApiMessage? body = null;
@@ -129,7 +133,8 @@ public sealed record AdminOrderDetailModel(
     DateTime? ShippedAtUtc,
     DateTime? CompletedAtUtc,
     decimal TotalAmount,
-    IReadOnlyList<AdminOrderItemModel> Items);
+    IReadOnlyList<AdminOrderItemModel> Items,
+    IReadOnlyList<AdminOrderTimelineItemModel> Timeline);
 
 public sealed record AdminOrderItemModel(
     Guid Id,
@@ -139,6 +144,14 @@ public sealed record AdminOrderItemModel(
     decimal UnitPrice,
     decimal VatRate,
     decimal LineTotal);
+
+public sealed record AdminOrderTimelineItemModel(
+    Guid Id,
+    int? PreviousStatus,
+    int NewStatus,
+    string? Note,
+    Guid? ChangedByUserId,
+    DateTime ChangedAtUtc);
 
 public sealed record OrderSyncStatusModel(
     Guid Id,
