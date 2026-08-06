@@ -16,6 +16,7 @@ builder.Services.AddScoped<AuthApiClient>();
 builder.Services.AddScoped<QuoteApiClient>();
 builder.Services.AddScoped<ProfileApiClient>();
 builder.Services.AddScoped<AdminApiClient>();
+builder.Services.AddScoped<ExcelQuoteImporter>();
 
 var app = builder.Build();
 
