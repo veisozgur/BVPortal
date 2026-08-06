@@ -1,7 +1,7 @@
 @page "/siparislerim"
 @rendermode InteractiveServer
 @using BV.Web.Services
-@inject OrderApiClient Orders
+@inject OrderApiClient OrderClient
 
 <PageTitle>Siparişlerim | BV Portal</PageTitle>
 
@@ -59,7 +59,7 @@ else
     private async Task LoadAsync()
     {
         loading = true;
-        items = await Orders.ListAsync();
+        items = await OrderClient.ListAsync();
         loading = false;
     }
 
